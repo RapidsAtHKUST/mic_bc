@@ -1,4 +1,0 @@
-PROJECT(MIC_BC)
-set(SRC_LIST Main.cpp)
-ADD_EXECUTABLE(mic_bc.out ${SRC_LIST})
-
