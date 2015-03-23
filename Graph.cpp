@@ -168,11 +168,11 @@ void Graph::parse(char* file) {
 	std::string s(file);
 
 	if (s.find(".graph") != std::string::npos) {
-		 parse_metis(file);
+		parse_metis(file);
 	} else if (s.find(".txt") != std::string::npos) {
-		 parse_edgelist(file);
+		parse_edgelist(file);
 	} else if (s.find(".edge") != std::string::npos) {
-		 parse_edgelist(file);
+		parse_edgelist(file);
 	} else {
 		std::cerr << "Error: Unsupported file type." << std::endl;
 		exit(-1);
@@ -180,9 +180,189 @@ void Graph::parse(char* file) {
 }
 
 void Graph::parse_metis(char* file) {
+	std::ifstream metis(file, std::ifstream::in);
+	std::string line;
+	bool firstline = true;
+	int current_node = 0;
+	int current_edge = 0;
+
+	if (!metis.good()) {
+		std::cerr << "Error opening graph file." << std::endl;
+		exit(-1);
+	}
+
+	while (std::getline(metis, line)) {
+		if (line[0] == '%') {
+			continue;
+		}
+
+		std::vector<std::string> splitvec;
+		boost::split(splitvec, line, boost::is_any_of(" \t"),
+				boost::token_compress_on); //Now tokenize
+
+		//If the first or last element is a space or tab itself, erase it
+		if (!splitvec.empty() && !is_number(splitvec[0])) {
+			splitvec.erase(splitvec.begin());
+		}
+		if (!is_number(splitvec[splitvec.size() - 1])) {
+			splitvec.erase(splitvec.end() - 1);
+		}
+
+		if (firstline) {
+			this->n = std::stoi(splitvec[0]);
+			this->m = std::stoi(splitvec[1]);
+			if (splitvec.size() > 3) {
+				std::cerr << "Error: Weighted graphs are not yet supported."
+						<< std::endl;
+				exit(-2);
+			} else if ((splitvec.size() == 3) && (std::stoi(splitvec[2]) != 0)) {
+				std::cerr << "Error: Weighted graphs are not yet supported."
+						<< std::endl;
+				exit(-2);
+			}
+			firstline = false;
+			this->R = new int[this->n + 1];
+			this->F = new int[2 * this->m];
+			this->C = new int[2 * this->m];
+			this->R[0] = 0;
+			current_node++;
+		} else {
+			//Count the number of edges that this vertex has and add that to the most recent value in R
+			this->R[current_node] = splitvec.size() + this->R[current_node - 1];
+			for (unsigned i = 0; i < splitvec.size(); i++) {
+				//coPapersDBLP uses a space to mark the beginning of each line, so we'll account for that here
+				if (!is_number(splitvec[i])) {
+					//Need to adjust this->R
+					this->R[current_node]--;
+					continue;
+				}
+				//Store the neighbors in C
+				//METIS graphs are indexed by one, but for our convenience we represent them as if
+				//they were zero-indexed
+				this->C[current_edge] = std::stoi(splitvec[i]) - 1;
+				this->F[current_edge] = current_node - 1;
+				current_edge++;
+			}
+			current_node++;
+		}
+	}
 }
 
 void Graph::parse_edgelist(char* file) {
+	std::set<std::string> vertices;
+
+	//Scan the file
+	std::ifstream edgelist(file, std::ifstream::in);
+	std::string line;
+
+	if (!edgelist.good()) {
+		std::cerr << "Error opening graph file." << std::endl;
+		exit(-1);
+	}
+
+	std::vector<std::string> from;
+	std::vector<std::string> to;
+	while (std::getline(edgelist, line)) {
+		if ((line[0] == '%') || (line[0] == '#')) //Allow comments
+				{
+			continue;
+		}
+
+		std::vector<std::string> splitvec;
+		boost::split(splitvec, line, boost::is_any_of(" \t"),
+				boost::token_compress_on);
+
+		if (splitvec.size() != 2) {
+			std::cerr
+					<< "Warning: Found a row that does not represent an edge or comment."
+					<< std::endl;
+			std::cerr << "Row in question: " << std::endl;
+			for (unsigned i = 0; i < splitvec.size(); i++) {
+				std::cout << splitvec[i] << std::endl;
+			}
+			exit(-1);
+		}
+
+		for (unsigned i = 0; i < splitvec.size(); i++) {
+			vertices.insert(splitvec[i]);
+		}
+
+		from.push_back(splitvec[0]);
+		to.push_back(splitvec[1]);
+	}
+
+	edgelist.close();
+
+	this->n = vertices.size();
+	this->m = from.size();
+
+	unsigned id = 0;
+	for (std::set<std::string>::iterator i = vertices.begin(), e =
+			vertices.end(); i != e; ++i) {
+		this->IDs.insert(boost::bimap<unsigned, std::string>::value_type(id++, *i));
+	}
+
+	this->R = new int[this->n + 1];
+	this->F = new int[2 * this->m];
+	this->C = new int[2 * this->m];
+
+	for (int i = 0; i < this->m; i++) {
+		boost::bimap<unsigned, std::string>::right_map::iterator itf =
+				this->IDs.right.find(from[i]);
+		boost::bimap<unsigned, std::string>::right_map::iterator itc =
+				this->IDs.right.find(to[i]);
+
+		if ((itf == this->IDs.right.end()) || (itc == this->IDs.right.end())) {
+			std::cerr << "Error parsing graph file." << std::endl;
+			exit(-1);
+		} else {
+			if (itf->second == itc->second) {
+				std::cerr << "Error: self edge! " << itf->second << " -> "
+						<< itc->second << std::endl;
+				std::cerr
+						<< "Aborting. Graphs with self-edges aren't supported."
+						<< std::endl;
+				exit(-1);
+			}
+			this->F[2 * i] = itf->second;
+			this->C[2 * i] = itc->second;
+			//Treat undirected edges as two directed edges
+			this->F[(2 * i) + 1] = itc->second;
+			this->C[(2 * i) + 1] = itf->second;
+		}
+	}
+
+	//Sort edges by F
+	std::vector<std::pair<int, int> > edges;
+	for (int i = 0; i < 2 * this->m; i++) {
+		edges.push_back(std::make_pair(this->F[i], this->C[i]));
+	}
+	std::sort(edges.begin(), edges.end()); //By default, pair sorts with precedence to it's first member, which is precisely what we want.
+	this->R[0] = 0;
+	int last_node = 0;
+	for (int i = 0; i < 2 * this->m; i++) {
+		this->F[i] = edges[i].first;
+		this->C[i] = edges[i].second;
+		while (edges[i].first > last_node) {
+			this->R[++last_node] = i;
+		}
+	}
+	this->R[this->n] = 2 * this->m;
+	edges.clear();
+}
+
+bool Graph::is_number(const std::string& s) {
+	std::string::const_iterator it = s.begin();
+	while (it != s.end() && std::isdigit(*it))
+		++it;
+	return !s.empty() && it == s.end();
+}
+
+bool Graph::is_alphanumeric(const std::string& s) {
+	std::string::const_iterator it = s.begin();
+	while (it != s.end() && (std::isalnum(*it)))
+		++it;
+	return !s.empty() && it == s.end();
 }
 
 Graph::~Graph() {

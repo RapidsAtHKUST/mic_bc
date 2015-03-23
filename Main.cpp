@@ -21,6 +21,11 @@ int main(int argc, char *argv[]) {
 
 		Graph g;
 
+		g.parse(args.InputFile);
+
+		std::cout << "Number of nodes: " << g.n << std::endl;
+		std::cout << "Number of edges: " << g.m << std::endl;
+
 
 
 	} catch (std::exception &e) {

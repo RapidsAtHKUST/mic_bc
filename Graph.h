@@ -9,16 +9,17 @@
 #ifndef GRAPH_H_
 #define GRAPH_H_
 
+#include <string>
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <set>
 #include <boost/algorithm/string.hpp>
 #include <boost/bimap.hpp>
 
 class Graph {
 public:
 	Graph();
-
 	void print_adjacency_list();
 	void print_BC_scores(const std::vector<float> bc, char *outfile);
 	void print_CSR();
@@ -30,6 +31,9 @@ public:
 	void parse(char *file);
 	void parse_metis(char *file);
 	void parse_edgelist(char *file);
+
+	bool is_number(const std::string& s);
+	bool is_alphanumeric(const std::string &s);
 
 	int *R;
 	int *C;
