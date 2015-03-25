@@ -14,6 +14,7 @@
 #include "Graph.h"
 #include "TimeCounter.h"
 #include "CPU_BC.h"
+#include "MIC_BC.h"
 
 int main(int argc, char *argv[]) {
 	try {
@@ -35,6 +36,7 @@ int main(int argc, char *argv[]) {
 
 		std::set<int> source_vertices;
 		std::vector<float> bc_cpu;
+		std::vector<float> bc_mic;
 
 		if (args.verify) {
 			cpu_t.start_wall_time();
@@ -42,12 +44,18 @@ int main(int argc, char *argv[]) {
 			cpu_t.stop_wall_time();
 		}
 
+		MIC_BC Mic_BC;
+
+		mic_t.start_wall_time();
+		bc_mic = Mic_BC.bc();
+		mic_t.stop_wall_time();
+
 		if (args.verify) {
-			std::cout.precision(6);
-			std::cout << "CPU time: " << cpu_t.ms_wall/1000.0 << " s" << std::endl;
-			//for (auto i = bc_cpu.begin(); i != bc_cpu.end(); i++) {
-			//	std::cout << *i << std::endl;
-			//}
+			std::cout.precision(9);
+			std::cout << "CPU time: " << cpu_t.ms_wall / 1000.0 << " s" << std::endl;
+		}
+		if(args.printResult){
+
 		}
 
 	} catch (std::exception &e) {

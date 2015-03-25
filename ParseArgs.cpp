@@ -13,6 +13,7 @@ ParseArgs::ParseArgs() {
 	InputFile = nullptr;
 	ScoreFile = nullptr;
 	verify = false;
+	printResult = false;
 }
 
 void ParseArgs::Parser(int argc, char* argv[]) {
@@ -28,6 +29,7 @@ void ParseArgs::Parser(int argc, char* argv[]) {
 			InputFile = optarg;
 			break;
 		case 'o':
+			printResult = true;
 			ScoreFile = optarg;
 			break;
 		case 'v':

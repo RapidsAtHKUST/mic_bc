@@ -19,6 +19,7 @@ public:
 	char *InputFile;
 	char *ScoreFile;
 	bool verify;
+	bool printResult;
 	void Parser(int argc, char *argv[]);
 	void PrintUsage();
 	virtual ~ParseArgs();
