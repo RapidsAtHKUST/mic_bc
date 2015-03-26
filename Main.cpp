@@ -44,17 +44,18 @@ int main(int argc, char *argv[]) {
 			cpu_t.stop_wall_time();
 		}
 
-		MIC_BC Mic_BC;
+		MIC_BC Mic_BC(g);
 
 		mic_t.start_wall_time();
-		bc_mic = Mic_BC.bc();
+		Mic_BC.node_parallel();
 		mic_t.stop_wall_time();
 
 		if (args.verify) {
 			std::cout.precision(9);
-			std::cout << "CPU time: " << cpu_t.ms_wall / 1000.0 << " s" << std::endl;
+			std::cout << "CPU time: " << cpu_t.ms_wall / 1000.0 << " s"
+					<< std::endl;
 		}
-		if(args.printResult){
+		if (args.printResult) {
 
 		}
 
