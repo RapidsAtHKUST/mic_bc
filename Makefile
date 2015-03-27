@@ -1,8 +1,8 @@
 CXX = icpc
-CXXFLAGS = -Wall -std=c++11 -offload -O3 -mavx -g
+CXXFLAGS = -Wall -std=c++11 -offload -O3 -mavx -fopenmp -g
 
 LIBS = 
-
+LDFLAGS = -offload-option,mic,compiler,"-z defs -lpthread"
 PROG = mic_bc.out
 
 all : $(PROG)

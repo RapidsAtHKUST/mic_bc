@@ -9,13 +9,17 @@
 #ifndef GRAPHUTILITY_H_
 #define GRAPHUTILITY_H_
 
+
 #include <string>
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <set>
+
+#ifndef __MIC__
 #include <boost/algorithm/string.hpp>
 #include <boost/bimap.hpp>
+#endif
 
 #include "Graph.h"
 
@@ -39,9 +43,10 @@ public:
 
 	Graph *g;
 
-
+#ifndef __MIC__
 	boost::bimap<unsigned, std::string> IDs; //Associate vertices with other data.
 	//In general the unsigned could be replaced with a struct of attributes.
+#endif
 	virtual ~GraphUtility();
 };
 

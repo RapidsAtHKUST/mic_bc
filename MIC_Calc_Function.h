@@ -9,9 +9,20 @@
 #ifndef MIC_CALC_FUNCTION_H_
 #define MIC_CALC_FUNCTION_H_
 
+
 #include <cstdio>
 
+#include <limits.h>
+
 #include "MIC_COMMON.h"
+
+#pragma offload_attribute(push, target(mic))
+#include <vector>
+#include <queue>
+#include <stack>
+#include <iostream>
+#include <cstring>
+#pragma offload_attribute(pop)
 
 __ONMIC__ void MIC_Node_Parallel(int n, int m, int *R, int *F, int *C,
 		float *result_mic);

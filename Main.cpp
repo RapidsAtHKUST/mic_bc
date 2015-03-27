@@ -15,6 +15,7 @@
 #include "CPU_BC.h"
 #include "Graph.h"
 #include "GraphUtility.h"
+
 #include "MIC_BC.h"
 
 int main(int argc, char *argv[]) {
@@ -49,7 +50,7 @@ int main(int argc, char *argv[]) {
 		MIC_BC Mic_BC(g);
 
 		mic_t.start_wall_time();
-		Mic_BC.node_parallel();
+		bc_mic = Mic_BC.node_parallel();
 		mic_t.stop_wall_time();
 
 		if (args.verify) {
@@ -59,7 +60,19 @@ int main(int argc, char *argv[]) {
 		}
 		if (args.printResult) {
 			g_util.print_CSR();
+
+			std::cout << "CPU result:" << std::endl;
+			for (auto i = bc_cpu.begin(); i != bc_cpu.end(); i++)
+				std::cout << *i << " ";
+			std::cout << std::endl;
+
+			std::cout << "MIC result:" << std::endl;
+			for (auto i = bc_mic.begin(); i != bc_mic.end(); i++)
+				std::cout << *i << " ";
+			std::cout << std::endl;
 		}
+		std::cout << "MIC time: " << mic_t.ms_wall / 1000.0 << " s"
+							<< std::endl;
 
 	} catch (std::exception &e) {
 		std::cout << e.what() << std::endl;
