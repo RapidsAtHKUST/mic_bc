@@ -1,5 +1,5 @@
 CXX = icpc
-CXXFLAGS = -Wall -std=c++11 -offload -O3 -mavx
+CXXFLAGS = -Wall -std=c++11 -offload -O3 -mavx -g
 
 LIBS = 
 
@@ -7,7 +7,7 @@ PROG = mic_bc.out
 
 all : $(PROG)
 
-OBJS = Main.o ParseArgs.o Graph.o TimeCounter.o CPU_BC.o MIC_BC.o MIC_Calc_Function.o
+OBJS = Main.o ParseArgs.o Graph.o GraphUtility.o TimeCounter.o CPU_BC.o MIC_BC.o MIC_Calc_Function.o
 
 %.o: %.cpp %.h Makefile
 	$(CXX) $(CXXFLAGS) -c $< -o $@

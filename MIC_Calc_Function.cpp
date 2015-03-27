@@ -10,10 +10,9 @@
 
 __ONMIC__ void MIC_Node_Parallel(int n, int m, int* R, int* F, int* C,
 		float* result_mic) {
-#ifdef __ONMIC__
-	printf("MIC\n");
-#else
-	printf("CPU\n");
-#endif
+
+	for(int i =0; i< n;i++){
+		result_mic[i] = R[i];
+	}
 
 }

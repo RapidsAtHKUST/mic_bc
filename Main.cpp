@@ -13,6 +13,7 @@
 #include "ParseArgs.h"
 #include "TimeCounter.h"
 #include "CPU_BC.h"
+#include "Graph.h"
 #include "GraphUtility.h"
 #include "MIC_BC.h"
 
@@ -25,8 +26,9 @@ int main(int argc, char *argv[]) {
 		args.Parser(argc, argv);
 
 		Graph g;
+		GraphUtility g_util(&g);
 
-		g.parse(args.InputFile);
+		g_util.parse(args.InputFile);
 
 		std::cout << "Number of nodes: " << g.n << std::endl;
 		std::cout << "Number of edges: " << g.m << std::endl;
@@ -56,7 +58,7 @@ int main(int argc, char *argv[]) {
 					<< std::endl;
 		}
 		if (args.printResult) {
-
+			g_util.print_CSR();
 		}
 
 	} catch (std::exception &e) {

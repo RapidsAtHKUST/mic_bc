@@ -8,14 +8,12 @@
 
 #include "GraphUtility.h"
 
-GraphUtiliy::GraphUtiliy() {
-	// TODO Auto-generated constructor stub
-	R = C = F = nullptr;
-	n = m = -1;
+GraphUtility::GraphUtility(Graph *g) {
+	this->g = g;
 }
 
-void GraphUtiliy::print_adjacency_list() {
-	if (R == NULL) {
+void GraphUtility::print_adjacency_list() {
+	if (g->R == NULL) {
 		std::cerr
 				<< "Error: Attempt to print adjacency list of graph that has not been parsed."
 				<< std::endl;
@@ -24,14 +22,14 @@ void GraphUtiliy::print_adjacency_list() {
 
 	std::cout << "Edge lists for each vertex: " << std::endl;
 
-	for (int i = 0; i < n; i++) {
-		int begin = R[i];
-		int end = R[i + 1];
+	for (int i = 0; i < g->n; i++) {
+		int begin = g->R[i];
+		int end = g->R[i + 1];
 		boost::bimap<unsigned, std::string>::left_map::iterator itr =
 				IDs.left.find(i);
 		for (int j = begin; j < end; j++) {
 			boost::bimap<unsigned, std::string>::left_map::iterator itc =
-					IDs.left.find(C[j]);
+					IDs.left.find(g->C[j]);
 			if (j == begin) {
 				std::cout << itr->second << " | " << itc->second;
 			} else {
@@ -46,11 +44,11 @@ void GraphUtiliy::print_adjacency_list() {
 	}
 }
 
-void GraphUtiliy::print_BC_scores(const std::vector<float> bc, char* outfile) {
+void GraphUtility::print_BC_scores(const std::vector<float> bc, char* outfile) {
 	std::ofstream ofs;
 
 	std::ostream &os = (outfile ? ofs : std::cout);
-	for (int i = 0; i < n; i++) {
+	for (int i = 0; i < g->n; i++) {
 		boost::bimap<unsigned, std::string>::left_map::iterator it =
 				IDs.left.find(i);
 		if (it != IDs.left.end()) {
@@ -62,8 +60,8 @@ void GraphUtiliy::print_BC_scores(const std::vector<float> bc, char* outfile) {
 	}
 }
 
-void GraphUtiliy::print_CSR() {
-	if ((R == NULL) || (C == NULL) || (F == NULL)) {
+void GraphUtility::print_CSR() {
+	if ((g->R == NULL) || (g->C == NULL) || (g->F == NULL)) {
 		std::cerr
 				<< "Error: Attempt to print CSR of a graph that has not been parsed."
 				<< std::endl;
@@ -71,52 +69,52 @@ void GraphUtiliy::print_CSR() {
 	}
 
 	std::cout << "R = [";
-	for (int i = 0; i < (n + 1); i++) {
-		if (i == n) {
-			std::cout << R[i] << "]" << std::endl;
+	for (int i = 0; i < (g->n + 1); i++) {
+		if (i == g->n) {
+			std::cout << g->R[i] << "]" << std::endl;
 		} else {
-			std::cout << R[i] << ",";
+			std::cout << g->R[i] << ",";
 		}
 	}
 
 	std::cout << "C = [";
-	for (int i = 0; i < (2 * m); i++) {
-		if (i == ((2 * m) - 1)) {
-			std::cout << C[i] << "]" << std::endl;
+	for (int i = 0; i < (2 * g->m); i++) {
+		if (i == ((2 * g->m) - 1)) {
+			std::cout << g->C[i] << "]" << std::endl;
 		} else {
-			std::cout << C[i] << ",";
+			std::cout << g->C[i] << ",";
 		}
 	}
 
 	std::cout << "F = [";
-	for (int i = 0; i < (2 * m); i++) {
-		if (i == ((2 * m) - 1)) {
-			std::cout << F[i] << "]" << std::endl;
+	for (int i = 0; i < (2 * g->m); i++) {
+		if (i == ((2 * g->m) - 1)) {
+			std::cout << g->F[i] << "]" << std::endl;
 		} else {
-			std::cout << F[i] << ",";
+			std::cout << g->F[i] << ",";
 		}
 	}
 }
 
-void GraphUtiliy::print_R() {
-	if (R == NULL) {
+void GraphUtility::print_R() {
+	if (g->R == NULL) {
 		std::cerr
 				<< "Error: Attempt to print CSR of a graph that has not been parsed."
 				<< std::endl;
 	}
 
 	std::cout << "R = [";
-	for (int i = 0; i < (n + 1); i++) {
-		if (i == n) {
-			std::cout << R[i] << "]" << std::endl;
+	for (int i = 0; i < (g->n + 1); i++) {
+		if (i == g->n) {
+			std::cout << g->R[i] << "]" << std::endl;
 		} else {
-			std::cout << R[i] << ",";
+			std::cout << g->R[i] << ",";
 		}
 	}
 }
 
-void GraphUtiliy::print_high_degree_vertices() {
-	if (R == NULL) {
+void GraphUtility::print_high_degree_vertices() {
+	if (g->R == NULL) {
 		std::cerr
 				<< "Error: Attempt to search adjacency list of graph that has not been parsed."
 				<< std::endl;
@@ -124,8 +122,8 @@ void GraphUtiliy::print_high_degree_vertices() {
 	}
 
 	int max_degree = 0;
-	for (int i = 0; i < n; i++) {
-		int degree = R[i + 1] - R[i];
+	for (int i = 0; i < g->n; i++) {
+		int degree = g->R[i + 1] - g->R[i];
 		if (degree > max_degree) {
 			max_degree = degree;
 			std::cout << "Max degree: " << degree << std::endl;
@@ -133,29 +131,29 @@ void GraphUtiliy::print_high_degree_vertices() {
 	}
 }
 
-void GraphUtiliy::print_numerical_edge_file(char* outfile) {
+void GraphUtility::print_numerical_edge_file(char* outfile) {
 	std::ofstream ofs(outfile, std::ios::out);
 	if (!ofs.good()) {
 		std::cerr << "Error opening output file." << std::endl;
 		exit(-1);
 	}
-	for (int i = 0; i < 2 * m; i++) {
-		if (F[i] < C[i]) {
-			ofs << F[i] << " " << C[i] << std::endl;
+	for (int i = 0; i < 2 * g->m; i++) {
+		if (g->F[i] < g->C[i]) {
+			ofs << g->F[i] << " " << g->C[i] << std::endl;
 		}
 	}
 }
 
-void GraphUtiliy::print_number_of_isolated_vertices() {
-	if (R == NULL) {
+void GraphUtility::print_number_of_isolated_vertices() {
+	if (g->R == NULL) {
 		std::cerr
 				<< "Error: Attempt to print CSR of a graph that has not been parsed."
 				<< std::endl;
 	}
 
 	int isolated = 0;
-	for (int i = 0; i < n; i++) {
-		int degree = R[i + 1] - R[i];
+	for (int i = 0; i < g->n; i++) {
+		int degree = g->R[i + 1] - g->R[i];
 		if (degree == 0) {
 			isolated++;
 		}
@@ -164,7 +162,7 @@ void GraphUtiliy::print_number_of_isolated_vertices() {
 	std::cout << "Number of isolated vertices: " << isolated << std::endl;
 }
 
-void GraphUtiliy::parse(char* file) {
+void GraphUtility::parse(char* file) {
 	std::string s(file);
 
 	if (s.find(".graph") != std::string::npos) {
@@ -179,7 +177,7 @@ void GraphUtiliy::parse(char* file) {
 	}
 }
 
-void GraphUtiliy::parse_metis(char* file) {
+void GraphUtility::parse_metis(char* file) {
 	std::ifstream metis(file, std::ifstream::in);
 	std::string line;
 	bool firstline = true;
@@ -209,8 +207,8 @@ void GraphUtiliy::parse_metis(char* file) {
 		}
 
 		if (firstline) {
-			this->n = std::stoi(splitvec[0]);
-			this->m = std::stoi(splitvec[1]);
+			g->n = std::stoi(splitvec[0]);
+			g->m = std::stoi(splitvec[1]);
 			if (splitvec.size() > 3) {
 				std::cerr << "Error: Weighted graphs are not yet supported."
 						<< std::endl;
@@ -221,26 +219,26 @@ void GraphUtiliy::parse_metis(char* file) {
 				exit(-2);
 			}
 			firstline = false;
-			this->R = new int[this->n + 1];
-			this->F = new int[2 * this->m];
-			this->C = new int[2 * this->m];
-			this->R[0] = 0;
+			g->R = new int[g->n + 1];
+			g->F = new int[2 * g->m];
+			g->C = new int[2 * g->m];
+			g->R[0] = 0;
 			current_node++;
 		} else {
 			//Count the number of edges that this vertex has and add that to the most recent value in R
-			this->R[current_node] = splitvec.size() + this->R[current_node - 1];
+			g->R[current_node] = splitvec.size() + g->R[current_node - 1];
 			for (unsigned i = 0; i < splitvec.size(); i++) {
 				//coPapersDBLP uses a space to mark the beginning of each line, so we'll account for that here
 				if (!is_number(splitvec[i])) {
 					//Need to adjust this->R
-					this->R[current_node]--;
+					g->R[current_node]--;
 					continue;
 				}
 				//Store the neighbors in C
 				//METIS graphs are indexed by one, but for our convenience we represent them as if
 				//they were zero-indexed
-				this->C[current_edge] = std::stoi(splitvec[i]) - 1;
-				this->F[current_edge] = current_node - 1;
+				g->C[current_edge] = std::stoi(splitvec[i]) - 1;
+				g->F[current_edge] = current_node - 1;
 				current_edge++;
 			}
 			current_node++;
@@ -248,7 +246,7 @@ void GraphUtiliy::parse_metis(char* file) {
 	}
 }
 
-void GraphUtiliy::parse_edgelist(char* file) {
+void GraphUtility::parse_edgelist(char* file) {
 	std::set<std::string> vertices;
 
 	//Scan the file
@@ -293,8 +291,8 @@ void GraphUtiliy::parse_edgelist(char* file) {
 
 	edgelist.close();
 
-	this->n = vertices.size();
-	this->m = from.size();
+	g->n = vertices.size();
+	g->m = from.size();
 
 	unsigned id = 0;
 	for (std::set<std::string>::iterator i = vertices.begin(), e =
@@ -302,11 +300,11 @@ void GraphUtiliy::parse_edgelist(char* file) {
 		this->IDs.insert(boost::bimap<unsigned, std::string>::value_type(id++, *i));
 	}
 
-	this->R = new int[this->n + 1];
-	this->F = new int[2 * this->m];
-	this->C = new int[2 * this->m];
+	g->R = new int[g->n + 1];
+	g->F = new int[2 * g->m];
+	g->C = new int[2 * g->m];
 
-	for (int i = 0; i < this->m; i++) {
+	for (int i = 0; i < g->m; i++) {
 		boost::bimap<unsigned, std::string>::right_map::iterator itf =
 				this->IDs.right.find(from[i]);
 		boost::bimap<unsigned, std::string>::right_map::iterator itc =
@@ -324,48 +322,48 @@ void GraphUtiliy::parse_edgelist(char* file) {
 						<< std::endl;
 				exit(-1);
 			}
-			this->F[2 * i] = itf->second;
-			this->C[2 * i] = itc->second;
+			g->F[2 * i] = itf->second;
+			g->C[2 * i] = itc->second;
 			//Treat undirected edges as two directed edges
-			this->F[(2 * i) + 1] = itc->second;
-			this->C[(2 * i) + 1] = itf->second;
+			g->F[(2 * i) + 1] = itc->second;
+			g->C[(2 * i) + 1] = itf->second;
 		}
 	}
 
 	//Sort edges by F
 	std::vector<std::pair<int, int> > edges;
-	for (int i = 0; i < 2 * this->m; i++) {
-		edges.push_back(std::make_pair(this->F[i], this->C[i]));
+	for (int i = 0; i < 2 * g->m; i++) {
+		edges.push_back(std::make_pair(g->F[i], g->C[i]));
 	}
 	std::sort(edges.begin(), edges.end()); //By default, pair sorts with precedence to it's first member, which is precisely what we want.
-	this->R[0] = 0;
+	g->R[0] = 0;
 	int last_node = 0;
-	for (int i = 0; i < 2 * this->m; i++) {
-		this->F[i] = edges[i].first;
-		this->C[i] = edges[i].second;
+	for (int i = 0; i < 2 * g->m; i++) {
+		g->F[i] = edges[i].first;
+		g->C[i] = edges[i].second;
 		while (edges[i].first > last_node) {
-			this->R[++last_node] = i;
+			g->R[++last_node] = i;
 		}
 	}
-	this->R[this->n] = 2 * this->m;
+	g->R[g->n] = 2 * g->m;
 	edges.clear();
 }
 
-bool GraphUtiliy::is_number(const std::string& s) {
+bool GraphUtility::is_number(const std::string& s) {
 	std::string::const_iterator it = s.begin();
 	while (it != s.end() && std::isdigit(*it))
 		++it;
 	return !s.empty() && it == s.end();
 }
 
-bool GraphUtiliy::is_alphanumeric(const std::string& s) {
+bool GraphUtility::is_alphanumeric(const std::string& s) {
 	std::string::const_iterator it = s.begin();
 	while (it != s.end() && (std::isalnum(*it)))
 		++it;
 	return !s.empty() && it == s.end();
 }
 
-GraphUtiliy::~GraphUtiliy() {
+GraphUtility::~GraphUtility() {
 	// TODO Auto-generated destructor stub
 }
 

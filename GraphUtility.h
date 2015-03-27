@@ -17,9 +17,11 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/bimap.hpp>
 
-class GraphUtiliy {
+#include "Graph.h"
+
+class GraphUtility {
 public:
-	GraphUtiliy();
+	GraphUtility(Graph *g);
 	void print_adjacency_list();
 	void print_BC_scores(const std::vector<float> bc, char *outfile);
 	void print_CSR();
@@ -35,14 +37,12 @@ public:
 	bool is_number(const std::string& s);
 	bool is_alphanumeric(const std::string &s);
 
-	int *R;
-	int *C;
-	int *F;
-	int n; //Number of vertices
-	int m; //Number of edges
+	Graph *g;
+
+
 	boost::bimap<unsigned, std::string> IDs; //Associate vertices with other data.
 	//In general the unsigned could be replaced with a struct of attributes.
-	virtual ~GraphUtiliy();
+	virtual ~GraphUtility();
 };
 
 #endif /* GRAPHUTILITY_H_ */

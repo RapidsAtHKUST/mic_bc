@@ -9,10 +9,11 @@
 #include "MIC_BC.h"
 
 MIC_BC::MIC_BC(Graph g) {
-	// TODO Auto-generated constructor stub
 
 	n = g.n;
 	m = g.m;
+
+	std::cout << n << " " << m << std::endl;
 
 	R = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
 	F = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
@@ -21,28 +22,42 @@ MIC_BC::MIC_BC(Graph g) {
 
 	std::memset(result_mic, 0, sizeof(result_mic));
 
-	std::memcpy(R, g.R, n + 1);
-	std::memcpy(F, g.F, m * 2);
-	std::memcpy(C, g.C, m * 2);
+	std::memcpy(R, g.R, sizeof(int) * (n + 1));
+	std::memcpy(F, g.F, sizeof(int) * (m * 2));
+	std::memcpy(C, g.C, sizeof(int) * (m * 2));
 
-	std::cout << "mic_bc" << std::endl;
-//
-//#pragma offload target(mic:0)\
-//			in(R:length(n+1) alloc_if(1) free_if(0))\
-//			in(F:length(m*2) alloc_if(1) free_if(0))\
-//			in(C:length(n+1) alloc_if(1) free_if(0))\
-//			in(result_mic:length(n) alloc_if(1) free_if(0))
-//	{
-//	}
-
+}
+void MIC_BC::transfer_to_mic() {
+#pragma offload target(mic:0)\
+			in(R[0:n+1] : ALLOC)\
+			in(F[0:m*2] : ALLOC)\
+			in(C[0:m*2] : ALLOC)\
+			in(result_mic[0:n] : ALLOC)
+	{
+	}
 }
 
 void MIC_BC::node_parallel() {
 
-#pragma offload target(mic)
+	transfer_to_mic();
+
+#pragma offload target(mic:0)\
+	nocopy(R[0:n+1] : REUSE)\
+	nocopy(F[0:m*2] : REUSE)\
+	nocopy(C[0:m*2] : REUSE)\
+	nocopy(result_mic[0:n] : REUSE)
 	{
-		MIC_Node_Parallel(0,0,nullptr,nullptr,nullptr,nullptr);
+		MIC_Node_Parallel(n, m, R, F, C, result_mic);
+		printf("MIC DONE.\n");
 	}
+
+#pragma offload target(mic:0)\
+	out(result_mic[0:n] : FREE)
+	{
+	}
+	printf("DONE.\n");
+	for (int i = 0; i < n; i++)
+		printf("host : %f\n", result_mic[i]);
 
 #if 0
 #pragma offload target(mic:0)
@@ -84,7 +99,7 @@ void MIC_BC::node_parallel() {
 					int v = C[j];
 					if (d[v] == (d[w] - 1)) {
 						delta[v] += (sigma[v] / (float) sigma[w])
-								* (1 + delta[w]);
+						* (1 + delta[w]);
 					}
 				}
 

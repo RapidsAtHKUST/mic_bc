@@ -11,26 +11,34 @@
 
 #include <vector>
 #include <cstring>
+#include <iostream>
 
 #include <mm_malloc.h>
 
-#include "GraphUtility.h"
+#include "Graph.h"
 #include "MIC_COMMON.h"
 #include "MIC_Calc_Function.h"
+
+namespace MIC {
+#pragma offload_attribute (push,target(mic))
+int *R;
+int *F;
+int *C;
+int n;
+int m;
+float *result_mic;
+#pragma offload_attribute (pop)
+}
+
+using namespace MIC;
 
 class MIC_BC {
 public:
 	MIC_BC(Graph g);
 	std::vector<float> result;
+	void transfer_to_mic();
 	void node_parallel();
 	virtual ~MIC_BC();
-
-	int *R;
-	int *F;
-	int *C;
-	int n;
-	int m;
-	float *result_mic;
 
 };
 
