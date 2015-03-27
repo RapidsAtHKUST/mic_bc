@@ -6,8 +6,8 @@
  * 
  */
 
-#ifndef GRAPH_H_
-#define GRAPH_H_
+#ifndef GRAPHUTILITY_H_
+#define GRAPHUTILITY_H_
 
 #include <string>
 #include <iostream>
@@ -17,9 +17,9 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/bimap.hpp>
 
-class Graph {
+class GraphUtiliy {
 public:
-	Graph();
+	GraphUtiliy();
 	void print_adjacency_list();
 	void print_BC_scores(const std::vector<float> bc, char *outfile);
 	void print_CSR();
@@ -42,7 +42,7 @@ public:
 	int m; //Number of edges
 	boost::bimap<unsigned, std::string> IDs; //Associate vertices with other data.
 	//In general the unsigned could be replaced with a struct of attributes.
-	virtual ~Graph();
+	virtual ~GraphUtiliy();
 };
 
-#endif /* GRAPH_H_ */
+#endif /* GRAPHUTILITY_H_ */

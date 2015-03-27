@@ -14,7 +14,7 @@
 #include <queue>
 #include <stack>
 
-#include "Graph.h"
+#include "GraphUtility.h"
 
 std::vector<float> BC_cpu(Graph g, const std::set<int> &source_vertices);
 

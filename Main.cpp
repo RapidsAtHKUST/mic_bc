@@ -11,9 +11,9 @@
 #include <set>
 
 #include "ParseArgs.h"
-#include "Graph.h"
 #include "TimeCounter.h"
 #include "CPU_BC.h"
+#include "GraphUtility.h"
 #include "MIC_BC.h"
 
 int main(int argc, char *argv[]) {

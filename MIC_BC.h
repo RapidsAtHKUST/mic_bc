@@ -14,8 +14,9 @@
 
 #include <mm_malloc.h>
 
-#include "Graph.h"
+#include "GraphUtility.h"
 #include "MIC_COMMON.h"
+#include "MIC_Calc_Function.h"
 
 class MIC_BC {
 public:
@@ -23,13 +24,6 @@ public:
 	std::vector<float> result;
 	void node_parallel();
 	virtual ~MIC_BC();
-
-//	__ONMIC_VAR__ int *R;
-//	__ONMIC_VAR__ int *F;
-//	__ONMIC_VAR__ int *C;
-//	__ONMIC_VAR__ int n;
-//	__ONMIC_VAR__ int m;
-//	__ONMIC_VAR__ float *result_mic;
 
 	int *R;
 	int *F;

@@ -39,6 +39,11 @@ MIC_BC::MIC_BC(Graph g) {
 
 void MIC_BC::node_parallel() {
 
+#pragma offload target(mic)
+	{
+		MIC_Node_Parallel(0,0,nullptr,nullptr,nullptr,nullptr);
+	}
+
 #if 0
 #pragma offload target(mic:0)
 	{

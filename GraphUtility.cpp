@@ -6,15 +6,15 @@
  * 
  */
 
-#include "Graph.h"
+#include "GraphUtility.h"
 
-Graph::Graph() {
+GraphUtiliy::GraphUtiliy() {
 	// TODO Auto-generated constructor stub
 	R = C = F = nullptr;
 	n = m = -1;
 }
 
-void Graph::print_adjacency_list() {
+void GraphUtiliy::print_adjacency_list() {
 	if (R == NULL) {
 		std::cerr
 				<< "Error: Attempt to print adjacency list of graph that has not been parsed."
@@ -46,7 +46,7 @@ void Graph::print_adjacency_list() {
 	}
 }
 
-void Graph::print_BC_scores(const std::vector<float> bc, char* outfile) {
+void GraphUtiliy::print_BC_scores(const std::vector<float> bc, char* outfile) {
 	std::ofstream ofs;
 
 	std::ostream &os = (outfile ? ofs : std::cout);
@@ -62,7 +62,7 @@ void Graph::print_BC_scores(const std::vector<float> bc, char* outfile) {
 	}
 }
 
-void Graph::print_CSR() {
+void GraphUtiliy::print_CSR() {
 	if ((R == NULL) || (C == NULL) || (F == NULL)) {
 		std::cerr
 				<< "Error: Attempt to print CSR of a graph that has not been parsed."
@@ -98,7 +98,7 @@ void Graph::print_CSR() {
 	}
 }
 
-void Graph::print_R() {
+void GraphUtiliy::print_R() {
 	if (R == NULL) {
 		std::cerr
 				<< "Error: Attempt to print CSR of a graph that has not been parsed."
@@ -115,7 +115,7 @@ void Graph::print_R() {
 	}
 }
 
-void Graph::print_high_degree_vertices() {
+void GraphUtiliy::print_high_degree_vertices() {
 	if (R == NULL) {
 		std::cerr
 				<< "Error: Attempt to search adjacency list of graph that has not been parsed."
@@ -133,7 +133,7 @@ void Graph::print_high_degree_vertices() {
 	}
 }
 
-void Graph::print_numerical_edge_file(char* outfile) {
+void GraphUtiliy::print_numerical_edge_file(char* outfile) {
 	std::ofstream ofs(outfile, std::ios::out);
 	if (!ofs.good()) {
 		std::cerr << "Error opening output file." << std::endl;
@@ -146,7 +146,7 @@ void Graph::print_numerical_edge_file(char* outfile) {
 	}
 }
 
-void Graph::print_number_of_isolated_vertices() {
+void GraphUtiliy::print_number_of_isolated_vertices() {
 	if (R == NULL) {
 		std::cerr
 				<< "Error: Attempt to print CSR of a graph that has not been parsed."
@@ -164,7 +164,7 @@ void Graph::print_number_of_isolated_vertices() {
 	std::cout << "Number of isolated vertices: " << isolated << std::endl;
 }
 
-void Graph::parse(char* file) {
+void GraphUtiliy::parse(char* file) {
 	std::string s(file);
 
 	if (s.find(".graph") != std::string::npos) {
@@ -179,7 +179,7 @@ void Graph::parse(char* file) {
 	}
 }
 
-void Graph::parse_metis(char* file) {
+void GraphUtiliy::parse_metis(char* file) {
 	std::ifstream metis(file, std::ifstream::in);
 	std::string line;
 	bool firstline = true;
@@ -204,7 +204,7 @@ void Graph::parse_metis(char* file) {
 		if (!splitvec.empty() && !is_number(splitvec[0])) {
 			splitvec.erase(splitvec.begin());
 		}
-		if (!is_number(splitvec[splitvec.size() - 1])) {
+		 if(!splitvec.empty() && !is_number(splitvec[splitvec.size()-1])) {
 			splitvec.erase(splitvec.end() - 1);
 		}
 
@@ -248,7 +248,7 @@ void Graph::parse_metis(char* file) {
 	}
 }
 
-void Graph::parse_edgelist(char* file) {
+void GraphUtiliy::parse_edgelist(char* file) {
 	std::set<std::string> vertices;
 
 	//Scan the file
@@ -351,21 +351,21 @@ void Graph::parse_edgelist(char* file) {
 	edges.clear();
 }
 
-bool Graph::is_number(const std::string& s) {
+bool GraphUtiliy::is_number(const std::string& s) {
 	std::string::const_iterator it = s.begin();
 	while (it != s.end() && std::isdigit(*it))
 		++it;
 	return !s.empty() && it == s.end();
 }
 
-bool Graph::is_alphanumeric(const std::string& s) {
+bool GraphUtiliy::is_alphanumeric(const std::string& s) {
 	std::string::const_iterator it = s.begin();
 	while (it != s.end() && (std::isalnum(*it)))
 		++it;
 	return !s.empty() && it == s.end();
 }
 
-Graph::~Graph() {
+GraphUtiliy::~GraphUtiliy() {
 	// TODO Auto-generated destructor stub
 }
 

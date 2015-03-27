@@ -11,7 +11,6 @@
 
 #define __ONMIC__ __attribute__((target(mic)))
 
-//#define __ONMIC_VAR__ __declspec( target (mic))
 
 
 
