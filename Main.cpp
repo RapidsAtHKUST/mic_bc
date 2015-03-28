@@ -9,6 +9,7 @@
 #include <iostream>
 #include <vector>
 #include <set>
+#include <stdexcept>
 
 #include "ParseArgs.h"
 #include "TimeCounter.h"
@@ -41,6 +42,9 @@ int main(int argc, char *argv[]) {
 		std::vector<float> bc_cpu;
 		std::vector<float> bc_mic;
 
+		if(!source_vertices.empty())
+			throw std::runtime_error("source_vectivces NOT empty!");
+
 		if (args.verify) {
 			cpu_t.start_wall_time();
 			bc_cpu = BC_cpu(g, source_vertices);
@@ -54,6 +58,9 @@ int main(int argc, char *argv[]) {
 		mic_t.stop_wall_time();
 
 		if (args.verify) {
+
+			g_util.verify(g, bc_cpu, bc_mic);
+
 			std::cout.precision(9);
 			std::cout << "CPU time: " << cpu_t.ms_wall / 1000.0 << " s"
 					<< std::endl;

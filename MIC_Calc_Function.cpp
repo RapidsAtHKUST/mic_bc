@@ -10,10 +10,12 @@
 
 __ONMIC__ void MIC_Node_Parallel(int n, int m, int* R, int* F, int* C,
 		float* result_mic) {
-	int end = n;
-#pragma omp parallel for
-	for (int k = 0; k < end; k++) {
+
+
+
+	cilk_for (int k = 0; k < n; k++) {
 		int i = k;
+
 		std::queue<int> Q;
 		std::stack<int> S;
 		std::vector<int> d(n, INT_MAX);
@@ -47,12 +49,10 @@ __ONMIC__ void MIC_Node_Parallel(int n, int m, int* R, int* F, int* C,
 				}
 			}
 			if (w != i) {
-				result_mic[w] += delta[w];
+
+				result_mic[i * n + w] += delta[w];
 			}
 		}
-	}
-	for (int i = 0; i < n; i++) {
-		result_mic[i] /= 2.0f; //Undirected edges are modeled as two directed edges, but the scores shouldn't be double counted.
 	}
 
 }
