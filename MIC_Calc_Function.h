@@ -25,6 +25,7 @@
 #include <cstring>
 #include <omp.h>
 #include <cilk/cilk.h>
+#include <cilk/cilk_api.h>
 #pragma offload_attribute(pop)
 
 __ONMIC__ void MIC_Node_Parallel(int n, int m, int *R, int *F, int *C,

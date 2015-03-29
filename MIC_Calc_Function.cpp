@@ -12,9 +12,9 @@ __ONMIC__ void MIC_Node_Parallel(int n, int m, int* R, int* F, int* C,
 		float* result_mic) {
 
 
-
 	cilk_for (int k = 0; k < n; k++) {
 		int i = k;
+		int id_num = i % MAX_MIC_CORE;
 
 		std::queue<int> Q;
 		std::stack<int> S;
@@ -49,8 +49,7 @@ __ONMIC__ void MIC_Node_Parallel(int n, int m, int* R, int* F, int* C,
 				}
 			}
 			if (w != i) {
-
-				result_mic[i * n + w] += delta[w];
+				result_mic[id_num * n + w] += delta[w];
 			}
 		}
 	}
