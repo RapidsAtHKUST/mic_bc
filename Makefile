@@ -1,5 +1,5 @@
 CXX = icpc
-CXXFLAGS = -Wall -std=c++11 -qoffload -O3 -mavx -qopenmp  -g -fimf-precision=high -Ofast
+CXXFLAGS = -Wall -std=c++11 -qoffload -O3 -mavx -qopenmp  -g
 
 LIBS = 
 LDFLAGS = -offload-option,mic,compiler,"-z defs -lpthread"

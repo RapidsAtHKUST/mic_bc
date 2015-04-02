@@ -14,6 +14,8 @@ ParseArgs::ParseArgs() {
 	ScoreFile = nullptr;
 	verify = false;
 	printResult = false;
+	num_devices = _Offload_number_of_devices();
+	num_cores = omp_get_max_threads_target(TARGET_MIC, 0);
 }
 
 void ParseArgs::Parser(int argc, char* argv[]) {

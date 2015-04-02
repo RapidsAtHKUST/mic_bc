@@ -32,7 +32,12 @@ int main(int argc, char *argv[]) {
 
 		g_util.parse(args.InputFile);
 
-		std::cout << "Number of nodes: " << g.n << std::endl;
+		std::cout << "Number of MIC: " << args.num_devices << std::endl;
+		std::cout << "Max Number of threads on MIC[0]: " << args.num_cores
+				<< std::endl;
+
+
+		std::cout << "\nNumber of nodes: " << g.n << std::endl;
 		std::cout << "Number of edges: " << g.m << std::endl;
 
 		TimeCounter cpu_t;
@@ -42,7 +47,7 @@ int main(int argc, char *argv[]) {
 		std::vector<float> bc_cpu;
 		std::vector<float> bc_mic;
 
-		if(!source_vertices.empty())
+		if (!source_vertices.empty())
 			throw std::runtime_error("source_vectivces NOT empty!");
 
 		if (args.verify) {
@@ -51,10 +56,10 @@ int main(int argc, char *argv[]) {
 			cpu_t.stop_wall_time();
 		}
 
-		MIC_BC Mic_BC(g);
+		MIC_BC Mic_BC(g, args.num_cores);
 
 		mic_t.start_wall_time();
-		bc_mic = Mic_BC.node_parallel();
+		bc_mic = Mic_BC.opt_bc();
 		mic_t.stop_wall_time();
 
 		if (args.verify) {
@@ -79,7 +84,7 @@ int main(int argc, char *argv[]) {
 			std::cout << std::endl;
 		}
 		std::cout << "MIC time: " << mic_t.ms_wall / 1000.0 << " s"
-							<< std::endl;
+				<< std::endl;
 
 	} catch (std::exception &e) {
 		std::cout << e.what() << std::endl;

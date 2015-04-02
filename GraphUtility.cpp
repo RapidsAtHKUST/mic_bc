@@ -368,6 +368,11 @@ void GraphUtility::verify(Graph g, const std::vector<float> bc_cpu, const std::v
 	double error = 0;
 	double max_error = 0;
 	int num_error = 0;
+
+	if(bc_cpu.size() != g.n || bc_gpu.size()!= g.n){
+		throw std::runtime_error("Wrong size of bc_cpu or bc_gpu!");
+	}
+
 	for(int i=0; i<g.n; i++)
 	{
 		double current_error = abs(bc_cpu[i] - bc_gpu[i]);

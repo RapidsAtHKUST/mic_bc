@@ -11,10 +11,10 @@
 __ONMIC__ void MIC_Node_Parallel(int n, int m, int* R, int* F, int* C,
 		float* result_mic) {
 
-
-	cilk_for (int k = 0; k < n; k++) {
+#pragma omp parallel for
+	for (int k = 0; k < n; k++) {
 		int i = k;
-		int id_num = i % MAX_MIC_CORE;
+		int id_num = omp_get_thread_num() % 40;
 
 		std::queue<int> Q;
 		std::stack<int> S;
@@ -53,5 +53,40 @@ __ONMIC__ void MIC_Node_Parallel(int n, int m, int* R, int* F, int* C,
 			}
 		}
 	}
+
+}
+
+__ONMIC__ void MIC_WorkEfficient_Parallel(int n, int m, int* R, int* F, int* C,
+		float* result_mic) {
+
+}
+
+__ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
+		float *result_mic, int *d_d, unsigned long long *sigma_d,
+		float *delta_d, int *Q_d, int *Q2_d, int *S_d, int *endpoints_d,
+		int *jia, int *diameters_d, int num_cores) {
+
+//将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
+	omp_set_num_threads(num_cores);
+#pragma omp parallel for
+	for (int thread_id = 0; thread_id < num_cores; thread_id++) {
+
+		int *d_row, *Q_row, *Q2_row, *S_row, *endpoints_row;
+
+		unsigned long long *sigma_row = sigma_d + thread_id * n;
+		float *delta_row = delta_d + thread_id * n;
+		float *bc = result_mic + thread_id * n;
+
+		d_row = d_d + thread_id * n;
+		Q_row = Q_d + thread_id * n;
+		Q2_row = Q2_d + thread_id * n;
+		S_row = S_d + thread_id * n;
+		endpoints_row = endpoints_d + thread_id * n;
+		*jia = 0;
+
+
+
+	}
+
 
 }

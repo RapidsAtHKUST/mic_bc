@@ -13,6 +13,9 @@
 #include <getopt.h>
 #include <stdexcept>
 
+#include <offload.h>
+#include <omp.h>
+
 class ParseArgs {
 public:
 	ParseArgs();
@@ -22,6 +25,10 @@ public:
 	bool printResult;
 	void Parser(int argc, char *argv[]);
 	void PrintUsage();
+
+	int num_devices;
+	int num_cores;
+
 	virtual ~ParseArgs();
 };
 
