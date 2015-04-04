@@ -24,7 +24,8 @@ int *d_d, *R_d, *C_d, *F_d, *Q_d, *Q2_d, *S_d, *endpoints_d, *next_source_d;
 unsigned long long *sigma_d;
 size_t pitch_d, pitch_sigma, pitch_delta, pitch_Q, pitch_Q2, pitch_S,
 		pitch_endpoints;
-int *jia_d, *diameters_d;
+int *diameters_d;
+int jia_d;
 
 }
 #pragma offload_attribute (pop)
@@ -44,8 +45,6 @@ MIC_BC::MIC_BC(Graph g, int num_cores) {
 	C = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
 	result_mic = (float *) _mm_malloc(sizeof(float) * n * num_cores, 64);
 
-	std::memset(result_mic, 0, sizeof(float) * n * num_cores);
-
 	std::memcpy(R, g.R, sizeof(int) * (n + 1));
 	std::memcpy(F, g.F, sizeof(int) * (m * 2));
 	std::memcpy(C, g.C, sizeof(int) * (m * 2));
@@ -59,9 +58,12 @@ MIC_BC::MIC_BC(Graph g, int num_cores) {
 	S_d = (int *) _mm_malloc(sizeof(int) * n * num_cores, 64);
 	endpoints_d = (int *) _mm_malloc(sizeof(int) * n * num_cores, 64);
 
-	jia_d = (int *) _mm_malloc(sizeof(int) * num_cores, 64);
 	diameters_d = (int *) _mm_malloc(sizeof(int) * DIAMETER_SAMPLES * num_cores,
 			64);
+
+	std::memset(result_mic, 0, sizeof(float) * n * num_cores);
+	std::memset(diameters_d, 0, sizeof(int) * n * num_cores);
+	jia_d = 0;
 	transfer_to_mic();
 
 }
@@ -121,7 +123,6 @@ std::vector<float> MIC_BC::opt_bc() {
 		nocopy(Q2_d[0:n*num_cores] : FREE)\
 		nocopy(S_d[0:n*num_cores] : FREE)\
 		nocopy(endpoints_d[0:n*num_cores] : FREE)\
-		nocopy(jia_d[0:num_cores] : FREE)\
 		nocopy(diameters_d[0:DIAMETER_SAMPLES*num_cores] : FREE)
 	{
 		MIC_Opt_BC(n, m, R, F, C, result_mic, d_d, sigma_d, delta_d, Q_d, Q2_d,
