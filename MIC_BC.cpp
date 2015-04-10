@@ -110,7 +110,7 @@ std::vector<float> MIC_BC::node_parallel() {
 
 std::vector<float> MIC_BC::opt_bc() {
 
-#pragma offload target(mic:0)\
+//#pragma offload target(mic:0)\
 		nocopy(R[0:n+1] : FREE)\
 		nocopy(F[0:m*2] : FREE)\
 		nocopy(C[0:m*2] : FREE)\
@@ -127,6 +127,8 @@ std::vector<float> MIC_BC::opt_bc() {
 		MIC_Opt_BC(n, m, R, F, C, result_mic, d_d, sigma_d, delta_d, Q_d, Q2_d,
 				S_d, endpoints_d, jia_d, diameters_d, num_cores);
 	}
+	for (int i = 0; i < n; i++)
+		result.push_back(result_mic[i] / 2.0f);
 
 	return result;
 }

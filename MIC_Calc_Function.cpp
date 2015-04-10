@@ -67,7 +67,7 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 		int jia, int *diameters, int num_cores) {
 
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
-	omp_set_num_threads(num_cores);
+	//omp_set_num_threads(num_cores);
 
 	int *d_row, *Q_row, *Q2_row, *S_row, *endpoints_row;
 	unsigned long long *sigma_row;
@@ -210,9 +210,10 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 			}
 		}
 
-		current_depth = d_row[S_row[S_len - 1]] - 1;
+		//current_depth = d_row[S_row[S_len - 1]] - 1;
 
 		while (current_depth > 0) {
+			//printf("%d\n",current_depth);
 			int stack_iter_len = endpoints_row[current_depth + 1]
 					- endpoints_row[current_depth];
 			if (jia && (stack_iter_len > 512)) {
