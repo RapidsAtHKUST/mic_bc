@@ -62,7 +62,7 @@ MIC_BC::MIC_BC(Graph g, int num_cores) {
 			64);
 
 	std::memset(result_mic, 0, sizeof(float) * n * num_cores);
-	std::memset(diameters_d, 0, sizeof(int) * n * num_cores);
+	std::memset(diameters_d, 0, sizeof(int) * DIAMETER_SAMPLES * num_cores);
 	jia_d = 0;
 	transfer_to_mic();
 
@@ -80,7 +80,6 @@ void MIC_BC::transfer_to_mic() {
 			in(Q2_d[0:n*num_cores] : ALLOC)\
 			in(S_d[0:n*num_cores] : ALLOC)\
 			in(endpoints_d[0:n*num_cores] : ALLOC)\
-			in(jia_d[0:num_cores] : ALLOC)\
 			in(diameters_d[0:DIAMETER_SAMPLES*num_cores] : ALLOC)
 	{
 	}
