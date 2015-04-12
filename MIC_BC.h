@@ -14,7 +14,7 @@
 #include <iostream>
 
 
-#include <mm_malloc.h>
+#include <malloc.h>
 
 #include "Graph.h"
 #include "MIC_COMMON.h"

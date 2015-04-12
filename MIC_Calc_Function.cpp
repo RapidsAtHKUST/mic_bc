@@ -67,25 +67,27 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 		int jia, int *diameters, int num_cores) {
 
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
-	//omp_set_num_threads(num_cores);
+	//omp_set_num_threads(2);
 
-	int *d_row, *Q_row, *Q2_row, *S_row, *endpoints_row;
-	unsigned long long *sigma_row;
-	float *delta_row, *bc;
+	int *Q_row, *Q2_row, *S_row, *endpoints_row;
+	//unsigned long long *sigma_row;
+	float *bc;
 
-	d_row = d_d;
+	tbb::atomic<int> *d_row = new tbb::atomic<int>[n];
+	tbb::atomic<unsigned long long> *sigma_row = new tbb::atomic<
+			unsigned long long>[n];
+	tbb::atomic<float> *delta_row = new tbb::atomic<float>[n];
+
 	Q_row = Q_d;
 	Q2_row = Q2_d;
 	S_row = S_d;
 	endpoints_row = endpoints_d;
-	sigma_row = sigma_d;
-	delta_row = delta_d;
 
 	int ind = 0;
 	int start_point = 0;
 	while (ind < n) {
 #pragma omp parallel for
-		for (int thread_id = 0; thread_id < num_cores; thread_id++) {
+		for (int thread_id = 0; thread_id < n; thread_id++) {
 			if (thread_id == start_point) {
 				d_row[thread_id] = 0;
 				sigma_row[thread_id] = 1;
@@ -97,7 +99,7 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 		}
 
 		int Q_len;
-		int Q2_len;
+		tbb::atomic<int> Q2_len;
 		int S_len;
 		int current_depth;
 		int endpoints_len;
@@ -109,7 +111,7 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 		S_row[0] = start_point;
 		S_len = 1;
 		endpoints_row[0] = 0;
-		endpoints_row[1] = 0;
+		endpoints_row[1] = 1;
 		endpoints_len = 2;
 		current_depth = 0;
 		sp_calc_done = false;
@@ -119,14 +121,12 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 			int w = C[r];
 			if (d_row[w] == INT_MAX) {
 				d_row[w] = 1;
-				int t = Q2_len;
-#pragma omp atomic
-				Q2_len += 1;
+
+				int t = Q2_len.fetch_and_increment();	//atomicAdd(&Q2_len, 1)
 				Q2_row[t] = w;
 			}
 			if (d_row[w] == (d_row[start_point] + 1)) {
-#pragma omp atomic
-				sigma_row[w] += 1;
+				sigma_row[w].fetch_and_increment();
 			}
 		}
 
@@ -155,18 +155,15 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 					int v = F[k];
 					if (d_row[v] == current_depth) {
 						int w = C[k];
-						if (d_row[w] == INT_MAX) {
-#pragma omp atomic
-							d_row[w] = d_row[w] + 1;
-							int t = Q2_len;
-#pragma omp atomic
-							Q2_len += 1;
+						if ((d_row[w].compare_and_swap(d_row[v] + 1, INT_MAX))
+								== INT_MAX) {
+							int t = Q2_len.fetch_and_increment();
 							Q2_row[t] = w;
 						}
 						if (d_row[w] == (d_row[v] + 1)) {
-#pragma omp atomic
-							sigma_row[w] += sigma_row[v];
+							sigma_row[w].fetch_and_add(sigma_row[v]);
 						}
+
 					}
 				}
 			} else { // work-efficient
@@ -176,17 +173,13 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 					int v = Q_row[k];
 					for (int r = R[v]; r < R[v + 1]; r++) {
 						int w = C[r];
-						if (d_row[w] == INT_MAX) {
-#pragma omp atomic
-							d_row[w] = d_row[v] + 1;
-							int t = Q2_len;
-#pragma omp atomic
-							Q2_len += 1;
+						if ((d_row[w].compare_and_swap(d_row[v] + 1, INT_MAX))
+								== INT_MAX) {
+							int t = Q2_len.fetch_and_increment();
 							Q2_row[t] = w;
 						}
 						if (d_row[w] == (d_row[v] + 1)) {
-#pragma omp atomic
-							sigma_row[w] += sigma_row[v];
+							sigma_row[w].fetch_and_add(sigma_row[v]);
 						}
 					}
 				}
@@ -210,7 +203,7 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 			}
 		}
 
-		//current_depth = d_row[S_row[S_len - 1]] - 1;
+		current_depth = d_row[S_row[S_len - 1]] - 1;
 
 		while (current_depth > 0) {
 			//printf("%d\n",current_depth);
@@ -225,8 +218,8 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 						if (d_row[v] == (d_row[w] + 1)) {
 							float change = (sigma_row[w] / (float) sigma_row[v])
 									* (1.0f + delta_row[v]);
-#pragma omp atomic
-							delta_row[w] += change;
+							change += delta_row[w];
+							delta_row[w].store(change);
 						}
 					}
 				}
@@ -237,20 +230,20 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 					int w = S_row[kk];
 					float dsw = 0;
 					float sw = (float) sigma_row[w];
-					for(int z = R[w]; z < R[w +1]; z++){
+					for (int z = R[w]; z < R[w + 1]; z++) {
 						int v = C[z];
-						if(d_row[v] == (d_row[w] + 1)){
-							dsw += (sw / (float)sigma_row[v])
-									*(1.0f+delta_row[v]);
+						if (d_row[v] == (d_row[w] + 1)) {
+							dsw += (sw / (float) sigma_row[v])
+									* (1.0f + delta_row[v]);
 						}
 					}
-					delta_row[w] = dsw;
+					delta_row[w].store(dsw);
 				}
 			}
 			current_depth--;
 
 		}
-		for(int kk = 0; kk<n;kk++){
+		for (int kk = 0; kk < n; kk++) {
 			result_mic[kk] += delta_row[kk];
 		}
 

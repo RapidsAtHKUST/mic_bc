@@ -16,7 +16,7 @@
 #include "MIC_COMMON.h"
 
 #pragma offload_attribute(push, target(mic))
-#include <mm_malloc.h>
+#include <malloc.h>
 #include <vector>
 #include <queue>
 #include <stack>
@@ -25,6 +25,7 @@
 #include <omp.h>
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
+#include <tbb/atomic.h>
 #pragma offload_attribute(pop)
 
 __ONMIC__ void MIC_Node_Parallel(int n, int m, int *R, int *F, int *C,
