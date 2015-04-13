@@ -110,7 +110,7 @@ std::vector<float> MIC_BC::node_parallel() {
 
 std::vector<float> MIC_BC::opt_bc() {
 
-#pragma offload target(mic:0)\
+//#pragma offload target(mic:0)\
 		nocopy(R[0:n+1] : FREE)\
 		nocopy(F[0:m*2] : FREE)\
 		nocopy(C[0:m*2] : FREE)\

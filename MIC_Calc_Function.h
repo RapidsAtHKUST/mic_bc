@@ -28,6 +28,9 @@
 #include <tbb/atomic.h>
 #pragma offload_attribute(pop)
 
+//detect Q is empty. empty -> true, non-empty -> false
+__ONMIC__ bool Q_empty(int *Q_len, int num_cores);
+
 __ONMIC__ void MIC_Node_Parallel(int n, int m, int *R, int *F, int *C,
 		float *result_mic);
 __ONMIC__ void MIC_WorkEfficient_Parallel(int n, int m, int *R, int *F, int *C,
