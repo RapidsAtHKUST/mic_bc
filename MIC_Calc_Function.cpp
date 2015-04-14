@@ -61,29 +61,22 @@ __ONMIC__ void MIC_WorkEfficient_Parallel(int n, int m, int* R, int* F, int* C,
 
 }
 
-__ONMIC__ bool Q_empty(int* Q_len, int num_cores) {
-	for (int thread_id = 0; thread_id < num_cores; thread_id++) {
-		if (Q_len[thread_id] > 0)
-			return false;
-	}
-	return true;
-}
-
 __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 		float *result_mic, int *d_d, unsigned long long *sigma_d,
 		float *delta_d, int *Q_d, int *Q2_d, int *S_d, int *endpoints_d,
 		int jia, int *diameters, int num_cores) {
 
+	printf("%d %d %d\n", n, m, num_cores);
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
-	//omp_set_num_threads(2);
+	omp_set_num_threads(num_cores);
 
-	int *Q_row, *S_row, *endpoints_row;
+	int *Q_row[num_cores], *S_row[num_cores], *endpoints_row[num_cores];
 	//unsigned long long *sigma_row;
-	float *bc;
+	float *bc[num_cores];
 
-	int **d_row, **Q2_row;
-	unsigned long long **sigma_row;
-	float **delta_row;
+	int *d_row[num_cores], *Q2_row[num_cores];
+	unsigned long long *sigma_row[num_cores];
+	float *delta_row[num_cores];
 
 	//tbb::atomic<int> *d_row = new tbb::atomic<int>[n];
 	//tbb::atomic<unsigned long long> *sigma_row = new tbb::atomic<
@@ -94,133 +87,105 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 	for (int i = 0; i < num_cores; i++) {
 		d_row[i] = d_d + n * i;
 		sigma_row[i] = sigma_d + n * i;
-		delta_row[i] = delta_row + n * i;
+		delta_row[i] = delta_d + n * i;
 		Q2_row[i] = Q2_d + n * i;
+		Q_row[i] = Q_d + n * i;
+		S_row[i] = S_d + n * i;
+		endpoints_row[i] = endpoints_d + n * i;
+		bc[i] = result_mic + n * i;
 	}
 
-	Q_row = Q_d;
-	S_row = S_d;
-	endpoints_row = endpoints_d;
-
-	int ind = 0;
-	int start_point = 0;
-	while (ind < n) {
+//	int ind = 0;
+//	int start_point = 0;
+	//while (ind < n) {
 #pragma omp parallel for
-		for (int thread_id = 0; thread_id < num_cores; thread_id++) {
-			for (int i = 0; i < n; i++) {
-				d_row[thread_id][i] = INT_MAX;
-				sigma_row[thread_id][i] = 0;
-				delta_row[thread_id][i] = 0;
-			}
-			d_row[thread_id][start_point] = 0;
-			sigma_row[thread_id][start_point] = 1;
+	for (int ind = 0; ind < n; ind++) {
+		int thread_id = omp_get_thread_num();
+
+		int start_point = ind;
+
+		for (int i = 0; i < n; i++) {
+			d_row[thread_id][i] = INT_MAX;
+			sigma_row[thread_id][i] = 0;
+			delta_row[thread_id][i] = 0;
 		}
+		d_row[thread_id][start_point] = 0;
+		sigma_row[thread_id][start_point] = 1;
 
-		int Q2_len[num_cores];
-
-		std::memset(Q2_len, 0, sizeof(int) * num_cores);
-
+		int Q2_len;
 		int Q_len;
-		//tbb::atomic<int> Q2_len;
 		int S_len;
 		int current_depth;
 		int endpoints_len;
 		bool sp_calc_done;
 
-		Q_row[0] = start_point;
+		Q_row[thread_id][0] = start_point;
 		Q_len = 1;
-		//	Q2_len = 0;
-		S_row[0] = start_point;
+		Q2_len = 0;
+		S_row[thread_id][0] = start_point;
 		S_len = 1;
-		endpoints_row[0] = 0;
-		endpoints_row[1] = 1;
+		endpoints_row[thread_id][0] = 0;
+		endpoints_row[thread_id][1] = 1;
 		endpoints_len = 2;
 		current_depth = 0;
 		sp_calc_done = false;
 
-#pragma omp parallel for
 		for (int r = R[start_point]; r < R[start_point + 1]; r++) {
-			int thread_id = omp_get_thread_num();
 			int w = C[r];
 			if (d_row[thread_id][w] == INT_MAX) {
 				d_row[thread_id][w] = 1;
-
-				int t = Q2_len[thread_id];
-				Q2_len[thread_id]++;
-				Q2_row[thread_id][t] = w;
+				Q2_row[thread_id][Q2_len++] = w;
 			}
-		}
-#pragma omp parallel for
-		for (int i = 0; i < n; i++) {
-			for (int thread_id = 1; thread_id < num_cores; thread_id++) {
-				d_row[0][i] =
-						d_row[0][i] < d_row[thread_id][i] ?
-								d_row[0][i] : d_row[thread_id][i];
-			}
-		}
-#pragma omp parallel for
-		for (int r = R[start_point]; r < R[start_point + 1]; r++) {
-			int w = C[r];
-			if (d_row[0][w] == (d_row[0][start_point] + 1)) {
-				sigma_row[0][w]++;
+			if (d_row[thread_id][w] == (d_row[thread_id][start_point] + 1)) {
+				sigma_row[thread_id][w]++;
 			}
 		}
 
-		if (Q_empty(Q2_len, num_cores)) {
+		if (Q2_len == 0) {
 			sp_calc_done = true;
 		} else {
-			int kk = 0;
-#pragma omp parallel for
-			for (int thread_id = 0; thread_id < num_cores; thread_id++) {
-				for (int i = 0; i < Q2_len[thread_id]; i++) {
-					Q_row[kk] = Q2_row[i];
-					S_row[kk + S_len] = Q2_row[thread_id][i];
-					kk++;
-				}
+			for (int kk = 0; kk < Q2_len; kk++) {
+				Q_row[thread_id][kk] = Q2_row[thread_id][kk];
+				S_row[thread_id][kk + S_len] = Q2_row[thread_id][kk];
 			}
 
-			endpoints_row[endpoints_len] = endpoints_row[endpoints_len - 1]
-					+ kk;
+			endpoints_row[thread_id][endpoints_len] =
+					endpoints_row[thread_id][endpoints_len - 1] + Q2_len;
 			endpoints_len++;
-			Q_len = kk;
-			S_len += kk;
+			Q_len = Q2_len;
+			S_len += Q2_len;
+			Q2_len = 0;
 			current_depth++;
-			std::memset(Q2_len, 0, sizeof(int) * num_cores);
 		}
 
 		while (!sp_calc_done) {
 			if (jia && (Q_len > 512)) {
-#pragma omp parallel for
 				for (int k = 0; k < 2 * m; k++) {
 					int v = F[k];
-					if (d_row[v] == current_depth) {
+					if (d_row[thread_id][v] == current_depth) {
 						int w = C[k];
-						if ((d_row[w].compare_and_swap(d_row[v] + 1, INT_MAX))
-								== INT_MAX) {
-							int t = Q2_len.fetch_and_increment();
-							Q2_row[t] = w;
+						if (d_row[thread_id][w] == INT_MAX) {
+							d_row[thread_id][w] = d_row[thread_id][v] + 1;
+							Q2_row[thread_id][Q2_len++] = w;
 						}
-						if (d_row[w] == (d_row[v] + 1)) {
-							sigma_row[w].fetch_and_add(sigma_row[v]);
+						if (d_row[thread_id][w] == (d_row[thread_id][v] + 1)) {
+							sigma_row[thread_id][w] += sigma_row[thread_id][v];
 						}
-
 					}
 				}
+
 			} else { // work-efficient
 
-//#############################
-#pragma omp parallel for
 				for (int k = 0; k < Q_len; k++) {
-					int v = Q_row[k];
+					int v = Q_row[thread_id][k];
 					for (int r = R[v]; r < R[v + 1]; r++) {
 						int w = C[r];
-						if ((d_row[w].compare_and_swap(d_row[v] + 1, INT_MAX))
-								== INT_MAX) {
-							int t = Q2_len.fetch_and_increment();
-							Q2_row[t] = w;
+						if (d_row[thread_id][w] == INT_MAX) {
+							d_row[thread_id][w] = d_row[thread_id][v] + 1;
+							Q2_row[thread_id][Q2_len++] = w;
 						}
-						if (d_row[w] == (d_row[v] + 1)) {
-							sigma_row[w].fetch_and_add(sigma_row[v]);
+						if (d_row[thread_id][w] == (d_row[thread_id][v] + 1)) {
+							sigma_row[thread_id][w] += sigma_row[thread_id][v];
 						}
 					}
 				}
@@ -229,13 +194,12 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 			if (Q2_len == 0) {
 				break;
 			} else {
-#pragma omp parallel for
-				for (int kk = 0; kk < Q2_len; kk++) {
-					Q_row[kk] = Q2_row[kk];
-					S_row[kk + S_len] = Q2_row[kk];
+				for (int kk = 0; kk < n; kk++) {
+					Q_row[thread_id][kk] = Q2_row[thread_id][kk];
+					S_row[thread_id][kk + S_len] = Q2_row[thread_id][kk];
 				}
-				endpoints_row[endpoints_len] = endpoints_row[endpoints_len - 1]
-						+ Q2_len;
+				endpoints_row[thread_id][endpoints_len] =
+						endpoints_row[thread_id][endpoints_len - 1] + Q2_len;
 				endpoints_len++;
 				Q_len = Q2_len;
 				S_len += Q2_len;
@@ -244,53 +208,50 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 			}
 		}
 
-		current_depth = d_row[S_row[S_len - 1]] - 1;
+		current_depth = d_row[thread_id][S_row[thread_id][S_len - 1]] - 1;
 
 		while (current_depth > 0) {
 			//printf("%d\n",current_depth);
-			int stack_iter_len = endpoints_row[current_depth + 1]
-					- endpoints_row[current_depth];
+			int stack_iter_len = endpoints_row[thread_id][current_depth + 1]
+					- endpoints_row[thread_id][current_depth];
 			if (jia && (stack_iter_len > 512)) {
-#pragma omp parallel for
 				for (int kk = 0; kk < 2 * m; kk++) {
 					int w = F[kk];
-					if (d_row[w] == current_depth) {
+					if (d_row[thread_id][w] == current_depth) {
 						int v = C[kk];
-						if (d_row[v] == (d_row[w] + 1)) {
-							float change = (sigma_row[w] / (float) sigma_row[v])
-									* (1.0f + delta_row[v]);
-							change += delta_row[w];
-							delta_row[w].store(change);
+						if (d_row[thread_id][v] == (d_row[thread_id][w] + 1)) {
+							float change = (sigma_row[thread_id][w]
+									/ (float) sigma_row[thread_id][v])
+									* (1.0f + delta_row[thread_id][v]);
+							delta_row[thread_id][w] += change;
 						}
 					}
 				}
 			} else {
-//###############################
-#pragma omp parallel for
-				for (int kk = endpoints_row[current_depth];
-						kk < endpoints_row[current_depth + 1]; kk++) {
-					int w = S_row[kk];
+				for (int kk = endpoints_row[thread_id][current_depth];
+						kk < endpoints_row[thread_id][current_depth + 1];
+						kk++) {
+
+					int w = S_row[thread_id][kk];
 					float dsw = 0;
-					float sw = (float) sigma_row[w];
+					float sw = (float) sigma_row[thread_id][w];
 					for (int z = R[w]; z < R[w + 1]; z++) {
 						int v = C[z];
-						if (d_row[v] == (d_row[w] + 1)) {
-							dsw += (sw / (float) sigma_row[v])
-									* (1.0f + delta_row[v]);
+						if (d_row[thread_id][v] == (d_row[thread_id][w] + 1)) {
+							dsw += (sw / (float) sigma_row[thread_id][v])
+									* (1.0f + delta_row[thread_id][v]);
 						}
 					}
-					delta_row[w].store(dsw);
+					delta_row[thread_id][w] = dsw;
 				}
 			}
 			current_depth--;
 
 		}
-		for (int kk = 0; kk < n; kk++) {
-			result_mic[kk] += delta_row[kk];
-		}
 
-		ind++;
-		start_point = ind;
+		for (int kk = 0; kk < n; kk++) {
+			bc[thread_id][kk] += delta_row[thread_id][kk];
+		}
 	}
 
 }

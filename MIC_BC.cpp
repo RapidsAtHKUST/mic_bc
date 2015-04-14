@@ -38,7 +38,7 @@ MIC_BC::MIC_BC(Graph g, int num_cores) {
 	m = g.m;
 	this->num_cores = num_cores;
 
-	std::cout << n << " " << m << std::endl;
+	std::cout << n << " " << m << " " << this->num_cores << std::endl;
 
 	R = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
 	F = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
@@ -123,9 +123,14 @@ std::vector<float> MIC_BC::opt_bc() {
 		nocopy(S_d[0:n*num_cores] : FREE)\
 		nocopy(endpoints_d[0:n*num_cores] : FREE)\
 		nocopy(diameters_d[0:DIAMETER_SAMPLES*num_cores] : FREE)
-	{
-		MIC_Opt_BC(n, m, R, F, C, result_mic, d_d, sigma_d, delta_d, Q_d, Q2_d,
-				S_d, endpoints_d, 1, diameters_d, num_cores);
+	//{
+	MIC_Opt_BC(n, m, R, F, C, result_mic, d_d, sigma_d, delta_d, Q_d, Q2_d, S_d,
+			endpoints_d, jia_d, diameters_d, 20);
+	//}
+	for (int i = 1; i < num_cores; i++) {
+		for (int j = 0; j < n; j++) {
+			result_mic[j] += result_mic[i * n + j];
+		}
 	}
 	for (int i = 0; i < n; i++)
 		result.push_back(result_mic[i] / 2.0f);
