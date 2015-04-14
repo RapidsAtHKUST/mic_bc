@@ -125,15 +125,22 @@ std::vector<float> MIC_BC::opt_bc() {
 		nocopy(diameters_d[0:DIAMETER_SAMPLES*num_cores] : FREE)
 	//{
 	MIC_Opt_BC(n, m, R, F, C, result_mic, d_d, sigma_d, delta_d, Q_d, Q2_d, S_d,
-			endpoints_d, jia_d, diameters_d, 20);
+			endpoints_d, jia_d, diameters_d, 4);
 	//}
-	for (int i = 1; i < num_cores; i++) {
+//	for (int i = 1; i < num_cores; i++) {
+//		for (int j = 0; j < n; j++) {
+//			result_mic[j] += result_mic[i * n + j];
+//		}
+//	}
+	int res[n];
+	std::memset(res, 0, sizeof(res));
+	for (int i = 0; i < num_cores; i++) {
 		for (int j = 0; j < n; j++) {
-			result_mic[j] += result_mic[i * n + j];
+			res[j] += result_mic[i * n + j];
 		}
 	}
 	for (int i = 0; i < n; i++)
-		result.push_back(result_mic[i] / 2.0f);
+		result.push_back(res[i] / 2.0f);
 
 	return result;
 }

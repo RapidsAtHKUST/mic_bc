@@ -61,10 +61,10 @@ __ONMIC__ void MIC_WorkEfficient_Parallel(int n, int m, int* R, int* F, int* C,
 
 }
 
-__ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
-		float *result_mic, int *d_d, unsigned long long *sigma_d,
+__ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
+		const int *C, float *result_mic, int *d_d, unsigned long long *sigma_d,
 		float *delta_d, int *Q_d, int *Q2_d, int *S_d, int *endpoints_d,
-		int jia, int *diameters, int num_cores) {
+		int jia, int *diameters, const int num_cores) {
 
 	printf("%d %d %d\n", n, m, num_cores);
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
@@ -83,7 +83,9 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 	//		unsigned long long>[n];
 	//tbb::atomic<float> *delta_row = new tbb::atomic<float>[n];
 
-#pragma omp parallel for
+	tbb::atomic<int> running[num_cores];
+
+//#pragma omp parallel for
 	for (int i = 0; i < num_cores; i++) {
 		d_row[i] = d_d + n * i;
 		sigma_row[i] = sigma_d + n * i;
@@ -93,14 +95,27 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 		S_row[i] = S_d + n * i;
 		endpoints_row[i] = endpoints_d + n * i;
 		bc[i] = result_mic + n * i;
+		running[i] = 0;
 	}
+
+	for(int i = 0 ; i < num_cores; i++)
+		printf("%d\n",running[i]);
 
 //	int ind = 0;
 //	int start_point = 0;
 	//while (ind < n) {
 #pragma omp parallel for
 	for (int ind = 0; ind < n; ind++) {
-		int thread_id = omp_get_thread_num();
+		int thread_id = -1;
+		while (thread_id == -1) {
+			for (int i = 0; i < num_cores; i++)
+				if ((running[i].compare_and_swap(1, 0)) == 0)
+					thread_id = i;
+		}
+
+		//printf("%d\n",thread_id);
+
+		//printf("%d %d\n", ind, thread_id);
 
 		int start_point = ind;
 
@@ -252,6 +267,8 @@ __ONMIC__ void MIC_Opt_BC(int n, int m, int *R, int *F, int *C,
 		for (int kk = 0; kk < n; kk++) {
 			bc[thread_id][kk] += delta_row[thread_id][kk];
 		}
+
+		running[thread_id] = 0;
 	}
 
 }
