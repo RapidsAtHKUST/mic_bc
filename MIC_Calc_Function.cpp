@@ -8,6 +8,21 @@
 
 #include "MIC_Calc_Function.h"
 
+#pragma offload_attribute(push, target(mic))
+#include <malloc.h>
+#include <vector>
+#include <queue>
+#include <stack>
+#include <iostream>
+#include <cstring>
+#include <omp.h>
+//#include <cilk/cilk.h>
+//#include <cilk/cilk_api.h>
+//#include <tbb/atomic.h>
+//#include <tbb/mutex.h>
+#include <mutex>
+#pragma offload_attribute(pop)
+
 __ONMIC__ void MIC_Node_Parallel(int n, int m, int* R, int* F, int* C,
 		float* result_mic) {
 
@@ -64,58 +79,57 @@ __ONMIC__ void MIC_WorkEfficient_Parallel(int n, int m, int* R, int* F, int* C,
 __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		const int *C, float *result_mic, int *d_d, unsigned long long *sigma_d,
 		float *delta_d, int *Q_d, int *Q2_d, int *S_d, int *endpoints_d,
-		int jia, int *diameters, const int num_cores) {
+		int *jia, int *diameters, const int num_cores) {
 
+	std::mutex lock[num_cores];
 	printf("%d %d %d\n", n, m, num_cores);
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
 	omp_set_num_threads(num_cores);
 
-	int *Q_row[num_cores], *S_row[num_cores], *endpoints_row[num_cores];
-	//unsigned long long *sigma_row;
-	float *bc[num_cores];
-
-	int *d_row[num_cores], *Q2_row[num_cores];
+	int *d_row[num_cores];
 	unsigned long long *sigma_row[num_cores];
 	float *delta_row[num_cores];
+	int *Q2_row[num_cores], *Q_row[num_cores], *S_row[num_cores],
+			*endpoints_row[num_cores];
 
-	//tbb::atomic<int> *d_row = new tbb::atomic<int>[n];
-	//tbb::atomic<unsigned long long> *sigma_row = new tbb::atomic<
-	//		unsigned long long>[n];
-	//tbb::atomic<float> *delta_row = new tbb::atomic<float>[n];
-
-	tbb::atomic<int> running[num_cores];
-
-//#pragma omp parallel for
+////#pragma omp parallel for
 	for (int i = 0; i < num_cores; i++) {
-		d_row[i] = d_d + n * i;
-		sigma_row[i] = sigma_d + n * i;
-		delta_row[i] = delta_d + n * i;
-		Q2_row[i] = Q2_d + n * i;
-		Q_row[i] = Q_d + n * i;
-		S_row[i] = S_d + n * i;
-		endpoints_row[i] = endpoints_d + n * i;
-		bc[i] = result_mic + n * i;
-		running[i] = 0;
+		d_row[i] = (int *) malloc(sizeof(int) * n);
+		sigma_row[i] = (unsigned long long *) malloc(
+				sizeof(unsigned long long) * n);
+		delta_row[i] = (float *) malloc(sizeof(float) * n);
+		Q2_row[i] = (int *) malloc(sizeof(int) * n);
+		Q_row[i] = (int *) malloc(sizeof(int) * n);
+		S_row[i] = (int *) malloc(sizeof(int) * n);
+		endpoints_row[i] = (int *) malloc(sizeof(int) * (n + 1));
 	}
-
-	for(int i = 0 ; i < num_cores; i++)
-		printf("%d\n",running[i]);
+//	for (int i = 0; i < num_cores; i++) {
+//		d_row[i] = d_d + n * i;
+//		sigma_row[i] = sigma_d + n * i;
+//		delta_row[i] = delta_d + n * i;
+//		Q2_row[i] = Q2_d + n * i;
+//		Q_row[i] = Q_d + n * i;
+//		S_row[i] = S_d + n * i;
+//		endpoints_row[i] = endpoints_d + (n+1) * i;
+//	}
 
 //	int ind = 0;
 //	int start_point = 0;
 	//while (ind < n) {
 #pragma omp parallel for
-	for (int ind = 0; ind < n; ind++) {
-		int thread_id = -1;
-		while (thread_id == -1) {
-			for (int i = 0; i < num_cores; i++)
-				if ((running[i].compare_and_swap(1, 0)) == 0)
-					thread_id = i;
-		}
+	for (int ind = n - 1; ind >= 0; ind--) {
+		//int thread_id = -1;
+//		while (thread_id == -1) {
+//			for (int i = 0; i < num_cores; i++)
+//				if ((running[i].compare_and_swap(1, 0)) == 0)
+//					thread_id = i;
+//		}
 
+		int thread_id = omp_get_thread_num();
+		lock[1].lock();
 		//printf("%d\n",thread_id);
 
-		//printf("%d %d\n", ind, thread_id);
+		printf("%d %d\n", ind, thread_id);
 
 		int start_point = ind;
 
@@ -127,7 +141,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		d_row[thread_id][start_point] = 0;
 		sigma_row[thread_id][start_point] = 1;
 
-		int Q2_len;
+		int Q2_len = 0;
 		int Q_len;
 		int S_len;
 		int current_depth;
@@ -149,7 +163,8 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 			int w = C[r];
 			if (d_row[thread_id][w] == INT_MAX) {
 				d_row[thread_id][w] = 1;
-				Q2_row[thread_id][Q2_len++] = w;
+				Q2_row[thread_id][Q2_len] = w;
+				Q2_len++;
 			}
 			if (d_row[thread_id][w] == (d_row[thread_id][start_point] + 1)) {
 				sigma_row[thread_id][w]++;
@@ -174,7 +189,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		}
 
 		while (!sp_calc_done) {
-			if (jia && (Q_len > 512)) {
+			if (jia[thread_id] && (Q_len > 512)) {
 				for (int k = 0; k < 2 * m; k++) {
 					int v = F[k];
 					if (d_row[thread_id][v] == current_depth) {
@@ -229,7 +244,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 			//printf("%d\n",current_depth);
 			int stack_iter_len = endpoints_row[thread_id][current_depth + 1]
 					- endpoints_row[thread_id][current_depth];
-			if (jia && (stack_iter_len > 512)) {
+			if (jia[thread_id] && (stack_iter_len > 512)) {
 				for (int kk = 0; kk < 2 * m; kk++) {
 					int w = F[kk];
 					if (d_row[thread_id][w] == current_depth) {
@@ -265,10 +280,11 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		}
 
 		for (int kk = 0; kk < n; kk++) {
-			bc[thread_id][kk] += delta_row[thread_id][kk];
+			result_mic[thread_id * n + kk] += delta_row[thread_id][kk];
 		}
-
-		running[thread_id] = 0;
+		lock[1].unlock();
+		//sleep(1);
+		//running[thread_id] = 0;
 	}
 
 }
