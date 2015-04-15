@@ -18,5 +18,7 @@
 
 std::vector<float> BC_cpu(Graph g, const std::set<int> &source_vertices);
 
+std::vector<float> BC_cpu_parallel(Graph g, int num_cores);
+
 
 #endif /* CPU_BC_H_ */

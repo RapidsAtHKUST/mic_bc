@@ -13,21 +13,20 @@
 #include <getopt.h>
 #include <stdexcept>
 
-#include <offload.h>
-#include <omp.h>
-
 class ParseArgs {
 public:
 	ParseArgs();
 	char *InputFile;
 	char *ScoreFile;
 	bool verify;
+	bool cpu_parallel;
 	bool printResult;
 	void Parser(int argc, char *argv[]);
 	void PrintUsage();
 
 	int num_devices;
-	int num_cores;
+	int num_cores_mic;
+	int num_cores_cpu;
 
 	virtual ~ParseArgs();
 };

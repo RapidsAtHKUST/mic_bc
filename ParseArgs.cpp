@@ -8,23 +8,27 @@
 
 #include "ParseArgs.h"
 
+#include <offload.h>
+#include <omp.h>
+
 ParseArgs::ParseArgs() {
 	// TODO Auto-generated constructor stub
 	InputFile = nullptr;
 	ScoreFile = nullptr;
-	verify = false;
+	verify = cpu_parallel = false;
 	printResult = false;
 	num_devices = _Offload_number_of_devices();
-	num_cores = omp_get_max_threads_target(TARGET_MIC, 0);
+	num_cores_mic = omp_get_max_threads_target(TARGET_MIC, 0);
+	num_cores_cpu = omp_get_max_threads();
 }
 
 void ParseArgs::Parser(int argc, char* argv[]) {
 
-	if(argc == 1)
+	if (argc == 1)
 		PrintUsage();
 
 	int oc;
-	while ((oc = getopt(argc, argv, "i:o::vh")) != -1) {
+	while ((oc = getopt(argc, argv, "i:o::cvh")) != -1) {
 
 		switch (oc) {
 		case 'i':
@@ -33,6 +37,9 @@ void ParseArgs::Parser(int argc, char* argv[]) {
 		case 'o':
 			printResult = true;
 			ScoreFile = optarg;
+			break;
+		case 'c':
+			cpu_parallel = true;
 			break;
 		case 'v':
 			verify = true;
@@ -50,5 +57,5 @@ ParseArgs::~ParseArgs() {
 }
 
 void ParseArgs::PrintUsage() {
-	throw  std::runtime_error("Error arguments!");
+	throw std::runtime_error("Error arguments!");
 }

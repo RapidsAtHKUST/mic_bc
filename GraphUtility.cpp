@@ -46,7 +46,9 @@ void GraphUtility::print_adjacency_list() {
 
 void GraphUtility::print_BC_scores(const std::vector<float> bc, char* outfile) {
 	std::ofstream ofs;
-
+	if (outfile != NULL) {
+		ofs.open(outfile, std::ios::out);
+	}
 	std::ostream &os = (outfile ? ofs : std::cout);
 	for (int i = 0; i < g->n; i++) {
 		boost::bimap<unsigned, std::string>::left_map::iterator it =
@@ -202,7 +204,7 @@ void GraphUtility::parse_metis(char* file) {
 		if (!splitvec.empty() && !is_number(splitvec[0])) {
 			splitvec.erase(splitvec.begin());
 		}
-		 if(!splitvec.empty() && !is_number(splitvec[splitvec.size()-1])) {
+		if (!splitvec.empty() && !is_number(splitvec[splitvec.size() - 1])) {
 			splitvec.erase(splitvec.end() - 1);
 		}
 
@@ -213,7 +215,8 @@ void GraphUtility::parse_metis(char* file) {
 				std::cerr << "Error: Weighted graphs are not yet supported."
 						<< std::endl;
 				exit(-2);
-			} else if ((splitvec.size() == 3) && (std::stoi(splitvec[2]) != 0)) {
+			} else if ((splitvec.size() == 3)
+					&& (std::stoi(splitvec[2]) != 0)) {
 				std::cerr << "Error: Weighted graphs are not yet supported."
 						<< std::endl;
 				exit(-2);
@@ -297,7 +300,8 @@ void GraphUtility::parse_edgelist(char* file) {
 	unsigned id = 0;
 	for (std::set<std::string>::iterator i = vertices.begin(), e =
 			vertices.end(); i != e; ++i) {
-		this->IDs.insert(boost::bimap<unsigned, std::string>::value_type(id++, *i));
+		this->IDs.insert(
+				boost::bimap<unsigned, std::string>::value_type(id++, *i));
 	}
 
 	g->R = new int[g->n + 1];
@@ -363,34 +367,22 @@ bool GraphUtility::is_alphanumeric(const std::string& s) {
 	return !s.empty() && it == s.end();
 }
 
-void GraphUtility::verify(Graph g, const std::vector<float> bc_cpu, const std::vector<float> bc_gpu)
-{
+void GraphUtility::verify(const std::vector<float> bc_cpu,
+		const std::vector<float> bc_gpu) {
 	double error = 0;
 	double max_error = 0;
-	int num_error = 0;
-
-	if(bc_cpu.size() != g.n || bc_gpu.size()!= g.n){
-		throw std::runtime_error("Wrong size of bc_cpu or bc_gpu!");
-	}
-
-	for(int i=0; i<g.n; i++)
-	{
+	for (int i = 0; i < g->n; i++) {
 		double current_error = abs(bc_cpu[i] - bc_gpu[i]);
-		if(current_error != 0)
-			num_error++;
-		error += current_error*current_error;
-		if(current_error > max_error)
-		{
+		error += current_error * current_error;
+		if (current_error > max_error) {
 			max_error = current_error;
 		}
 	}
-	error = error/(float)g.n;
+	error = error / (float) g->n;
 	error = sqrt(error);
-	std::cout << "Node Error: " << num_error << std::endl;
 	std::cout << "RMS Error: " << error << std::endl;
 	std::cout << "Maximum error: " << max_error << std::endl;
 }
-
 
 GraphUtility::~GraphUtility() {
 	// TODO Auto-generated destructor stub

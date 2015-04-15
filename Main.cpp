@@ -33,19 +33,22 @@ int main(int argc, char *argv[]) {
 		g_util.parse(args.InputFile);
 
 		std::cout << "Number of MIC: " << args.num_devices << std::endl;
-		std::cout << "Max Number of threads on MIC[0]: " << args.num_cores
+		std::cout << "Max Number of threads on MIC[0]: " << args.num_cores_mic
 				<< std::endl;
-
+		std::cout << "Max Number of threads on HOST: " << args.num_cores_cpu
+				<< std::endl;
 
 		std::cout << "\nNumber of nodes: " << g.n << std::endl;
 		std::cout << "Number of edges: " << g.m << std::endl;
 
 		TimeCounter cpu_t;
 		TimeCounter mic_t;
+		TimeCounter cpu_parallel_t;
 
 		std::set<int> source_vertices;
 		std::vector<float> bc_cpu;
 		std::vector<float> bc_mic;
+		std::vector<float> bc_cpu_parallel;
 
 		if (!source_vertices.empty())
 			throw std::runtime_error("source_vectivces NOT empty!");
@@ -56,32 +59,32 @@ int main(int argc, char *argv[]) {
 			cpu_t.stop_wall_time();
 		}
 
-		MIC_BC Mic_BC(g, args.num_cores);
+		if (args.cpu_parallel) {
+			cpu_parallel_t.start_wall_time();
+			bc_cpu_parallel = BC_cpu_parallel(g, args.num_cores_cpu);
+			cpu_parallel_t.stop_wall_time();
+		}
+
+		MIC_BC Mic_BC(g, args.num_cores_mic);
 
 		mic_t.start_wall_time();
 		bc_mic = Mic_BC.opt_bc();
 		mic_t.stop_wall_time();
 
+		if (args.printResult) {
+			g_util.print_BC_scores(bc_cpu, nullptr);
+		}
 		if (args.verify) {
 
-			g_util.verify(g, bc_cpu, bc_mic);
+			g_util.verify(bc_cpu, bc_mic);
 
 			std::cout.precision(9);
 			std::cout << "CPU time: " << cpu_t.ms_wall / 1000.0 << " s"
 					<< std::endl;
 		}
-		if (args.printResult) {
-			g_util.print_CSR();
-
-			std::cout << "CPU result:" << std::endl;
-			for (auto i = bc_cpu.begin(); i != bc_cpu.end(); i++)
-				std::cout << *i << " ";
-			std::cout << std::endl;
-
-			std::cout << "MIC result:" << std::endl;
-			for (auto i = bc_mic.begin(); i != bc_mic.end(); i++)
-				std::cout << *i << " ";
-			std::cout << std::endl;
+		if (args.cpu_parallel) {
+			std::cout << "CPU parallel time: "
+					<< cpu_parallel_t.ms_wall / 1000.0 << " s" << std::endl;
 		}
 		std::cout << "MIC time: " << mic_t.ms_wall / 1000.0 << " s"
 				<< std::endl;

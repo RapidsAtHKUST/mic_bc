@@ -8,6 +8,8 @@
 
 #include "CPU_BC.h"
 
+#include "MIC_Calc_Function.h"
+
 std::vector<float> BC_cpu(Graph g, const std::set<int>& source_vertices) {
 	std::vector<float> bc(g.n, 0);
 	int end = source_vertices.empty() ? g.n : source_vertices.size();
@@ -61,4 +63,38 @@ std::vector<float> BC_cpu(Graph g, const std::set<int>& source_vertices) {
 	}
 
 	return bc;
+}
+
+std::vector<float> BC_cpu_parallel(Graph g, int num_cores) {
+
+	int *R;
+	int *F;
+	int *C;
+	float *result_cpu;
+	std::vector<float> result;
+	int n = g.n;
+	int m = g.m;
+
+	R = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
+	F = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
+	C = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
+	result_cpu = (float *) _mm_malloc(sizeof(float) * n * num_cores, 64);
+
+	std::memcpy(R, g.R, sizeof(int) * (n + 1));
+	std::memcpy(F, g.F, sizeof(int) * (m * 2));
+	std::memcpy(C, g.C, sizeof(int) * (m * 2));
+
+	std::memset(result_cpu, 0, sizeof(float) * n * num_cores);
+
+	MIC_Opt_BC(n, m, R, F, C, result_cpu, num_cores);
+
+	for (int i = 1; i < num_cores; i++) {
+		for (int j = 0; j < n; j++) {
+			result_cpu[j] += result_cpu[i * n + j];
+		}
+	}
+	for (int i = 0; i < n; i++)
+		result.push_back(result_cpu[i] / 2.0f);
+
+	return result;
 }
