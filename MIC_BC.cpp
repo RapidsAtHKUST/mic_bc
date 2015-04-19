@@ -30,7 +30,7 @@ MIC_BC::MIC_BC(Graph g, int num_cores) {
 	m = g.m;
 	this->num_cores = num_cores;
 
-	std::cout << n << " " << m << " " << this->num_cores << std::endl;
+	//std::cout << n << " " << m << " " << this->num_cores << std::endl;
 
 	R = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
 	F = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);

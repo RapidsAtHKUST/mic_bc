@@ -87,42 +87,48 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
 	omp_set_num_threads(num_cores);
 
-//	int *d_row[num_cores];
-//	unsigned long long *sigma_row[num_cores];
-//	float *delta_row[num_cores];
-//	int *Q2_row[num_cores], *Q_row[num_cores], *S_row[num_cores],
-//			*endpoints_row[num_cores], jia, diameters[DIAMETER_SAMPLES];
+	int *d_a[num_cores];
+	unsigned long long *sigma_a[num_cores];
+	float *delta_a[num_cores];
+	int *Q2_a[num_cores], *Q_a[num_cores], *S_a[num_cores],
+			*endpoints_a[num_cores], jia, diameters[DIAMETER_SAMPLES];
 
-//	for (int i = 0; i < num_cores; i++) {
-//		S_row[i] = (int *) malloc(sizeof(int) * n);
-//		d_row[i] = (int *) malloc(sizeof(int) * n);
-//		sigma_row[i] = (unsigned long long *) malloc(
-//				sizeof(unsigned long long) * n);
-//		delta_row[i] = (float *) malloc(sizeof(float) * n);
-//		Q2_row[i] = (int *) malloc(sizeof(int) * n);
-//		Q_row[i] = (int *) malloc(sizeof(int) * n);
-//		endpoints_row[i] = (int *) malloc(sizeof(int) * (n + 1));
-//	}
-	int jia = 0;
+	for (int i = 0; i < num_cores; i++) {
+		d_a[i] = (int *) malloc(sizeof(int) * n);
+		sigma_a[i] = (unsigned long long *) malloc(
+				sizeof(unsigned long long) * n);
+		delta_a[i] = (float *) malloc(sizeof(float) * n);
+		Q2_a[i] = (int *) malloc(sizeof(int) * n);
+		Q_a[i] = (int *) malloc(sizeof(int) * n);
+		endpoints_a[i] = (int *) malloc(sizeof(int) * (n + 1));
+		S_a[i] = (int *) malloc(sizeof(int) * n);
+	}
+	jia = 0;
 
 //	std::memset(diameters, 0, sizeof(diameters));
 
 //	diameters[0] = INT_MAX;
 
-	std::mutex lock;
-
 #pragma omp parallel for
 	for (int ind = 0; ind < n; ind++) {
 
+		int thread_id = omp_get_thread_num();
 		int start_point = ind;
 
-		std::vector<int> d_row(n, INT_MAX);
-		std::vector<unsigned long long> sigma_row(n, 0);
-		std::vector<double> delta_row(n, 0);
-		std::vector<int> Q(n, 0);
-		std::vector<int> Q2(n, 0);
-		std::vector<int> endpoints(n + 1, 0);
-		std::vector<int> S_row(n, 0);
+//		std::vector<int> d_row(n, INT_MAX);
+//		std::vector<unsigned long long> sigma_row(n, 0);
+//		std::vector<double> delta_row(n, 0);
+//		std::vector<int> Q(n, 0);
+//		std::vector<int> Q2(n, 0);
+//		std::vector<int> endpoints(n + 1, 0);
+//		std::vector<int> S_row(n, 0);
+		int *d_row = d_a[thread_id];
+		unsigned long long *sigma_row = sigma_a[thread_id];
+		float *delta_row = delta_a[thread_id];
+		int *Q = Q_a[thread_id];
+		int *Q2 = Q2_a[thread_id];
+		int *endpoints = endpoints_a[thread_id];
+		int *S_row = S_a[thread_id];
 
 		S_row[0] = start_point;
 		endpoints[0] = 0;
@@ -134,6 +140,15 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		int current_depth = 0;
 		int endpoints_len = 2;
 		int sp_calc_done = false;
+
+		d_row[start_point] = 0;
+		sigma_row[start_point] = 1;
+
+		for (int i = 0; i < n; i++) {
+			d_row[i] = INT_MAX;
+			sigma_row[i] = 0;
+			delta_row[i] = 0;
+		}
 
 		d_row[start_point] = 0;
 		sigma_row[start_point] = 1;
@@ -229,7 +244,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 					if (d_row[w] == current_depth) {
 						int v = C[kk];
 						if (d_row[v] == (d_row[w] + 1)) {
-							double change = (sigma_row[w] / (double) sigma_row[v])
+							float change = (sigma_row[w] / (float) sigma_row[v])
 									* (1.0f + delta_row[v]);
 							delta_row[w] += change;
 						}
@@ -240,12 +255,12 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 						kk < endpoints[current_depth + 1]; kk++) {
 
 					int w = S_row[kk];
-					double dsw = 0;
-					double sw = (double) sigma_row[w];
+					float dsw = 0;
+					float sw = (float) sigma_row[w];
 					for (int z = R[w]; z < R[w + 1]; z++) {
 						int v = C[z];
 						if (d_row[v] == (d_row[w] + 1)) {
-							dsw += (sw / (double) sigma_row[v])
+							dsw += (sw / (float) sigma_row[v])
 									* (1.0f + delta_row[v]);
 						}
 					}
@@ -255,10 +270,12 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 			current_depth--;
 
 		}
-		int thread_id = omp_get_thread_num();
+
+		//lock.lock();
 		for (int kk = 0; kk < n; kk++) {
 			result_mic[thread_id * n + kk] += delta_row[kk];
 		}
+		//lock.unlock();
 
 //		if (ind == 2 * DIAMETER_SAMPLES) {
 //			int diameter_keys[DIAMETER_SAMPLES];

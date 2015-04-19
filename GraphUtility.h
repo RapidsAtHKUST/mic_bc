@@ -38,7 +38,7 @@ public:
 	void parse_metis(char *file);
 	void parse_edgelist(char *file);
 
-	void verify(const std::vector<float> bc_cpu, const std::vector<float> bc_mic);
+	void verify(Graph g,const std::vector<float> bc_cpu, const std::vector<float> bc_mic);
 
 	bool is_number(const std::string& s);
 	bool is_alphanumeric(const std::string &s);

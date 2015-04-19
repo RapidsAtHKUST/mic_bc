@@ -8,6 +8,8 @@
 
 #include "GraphUtility.h"
 
+#include <cmath>
+
 GraphUtility::GraphUtility(Graph *g) {
 	this->g = g;
 }
@@ -367,18 +369,18 @@ bool GraphUtility::is_alphanumeric(const std::string& s) {
 	return !s.empty() && it == s.end();
 }
 
-void GraphUtility::verify(const std::vector<float> bc_cpu,
+void GraphUtility::verify(Graph g, const std::vector<float> bc_cpu,
 		const std::vector<float> bc_gpu) {
 	double error = 0;
 	double max_error = 0;
-	for (int i = 0; i < g->n; i++) {
+	for (int i = 0; i < g.n; i++) {
 		double current_error = abs(bc_cpu[i] - bc_gpu[i]);
 		error += current_error * current_error;
 		if (current_error > max_error) {
 			max_error = current_error;
 		}
 	}
-	error = error / (float) g->n;
+	error = error / (float) g.n;
 	error = sqrt(error);
 	std::cout << "RMS Error: " << error << std::endl;
 	std::cout << "Maximum error: " << max_error << std::endl;

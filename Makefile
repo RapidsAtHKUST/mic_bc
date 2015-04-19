@@ -1,6 +1,8 @@
 CXX = icpc
-CXXFLAGS = -Wall -std=c++11 -qoffload -O3 -mavx -qopenmp -g 
+CXXFLAGS = -Wall -std=c++11 -offload -O3 -fopenmp -march=native
+CXXFLAGS+= $(FLAGS)
 #CXXFLAGS+= -fp-model strict
+
 
 LIBS = 
 LDFLAGS = -offload-option,mic,compiler,"-z defs -lpthread"

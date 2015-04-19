@@ -68,8 +68,8 @@ int main(int argc, char *argv[]) {
 		MIC_BC Mic_BC(g, args.num_cores_mic);
 
 		mic_t.start_wall_time();
-		//bc_mic = Mic_BC.opt_bc();
-		bc_mic = BC_cpu_parallel(g, args.num_cores_cpu);
+		bc_mic = Mic_BC.opt_bc();
+		//bc_mic = BC_cpu_parallel(g, args.num_cores_cpu);
 		mic_t.stop_wall_time();
 
 		if (args.printResult) {
@@ -77,17 +77,29 @@ int main(int argc, char *argv[]) {
 		}
 		if (args.verify) {
 
-			g_util.verify(bc_cpu, bc_mic);
+			g_util.verify(g, bc_cpu, bc_mic);
 
 			std::cout.precision(9);
 			std::cout << "CPU time: " << cpu_t.ms_wall / 1000.0 << " s"
 					<< std::endl;
+			std::ofstream outcpu("out-cpu.txt");
+			std::ofstream outmic("out-mic.txt");
+
+			for (int i = 0; i < g.n; i++) {
+				outcpu << bc_cpu[i] << "\n";
+				outmic << bc_mic[i] << "\n";
+			}
+			outcpu.close();
+			outmic.close();
 		}
+
 		if (args.cpu_parallel) {
 			std::cout << "CPU parallel time: "
 					<< cpu_parallel_t.ms_wall / 1000.0 << " s" << std::endl;
 		}
 		std::cout << "MIC time: " << mic_t.ms_wall / 1000.0 << " s"
+				<< std::endl;
+		std::cout << "MTEPS: " << ((long long)g.m * g.n/1000000) / (mic_t.ms_wall / 1000.0)
 				<< std::endl;
 
 	} catch (std::exception &e) {
