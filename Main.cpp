@@ -68,7 +68,8 @@ int main(int argc, char *argv[]) {
 		MIC_BC Mic_BC(g, args.num_cores_mic);
 
 		mic_t.start_wall_time();
-		bc_mic = Mic_BC.opt_bc();
+		//bc_mic = Mic_BC.opt_bc();
+		bc_mic = BC_cpu_parallel(g, args.num_cores_cpu);
 		mic_t.stop_wall_time();
 
 		if (args.printResult) {

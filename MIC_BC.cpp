@@ -17,7 +17,7 @@ int *F;
 int *C;
 int n;
 int m;
-float *result_mic;
+double *result_mic;
 
 }
 #pragma offload_attribute (pop)
@@ -35,7 +35,7 @@ MIC_BC::MIC_BC(Graph g, int num_cores) {
 	R = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
 	F = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
 	C = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
-	result_mic = (float *) _mm_malloc(sizeof(float) * n * num_cores, 64);
+	result_mic = (double *) _mm_malloc(sizeof(double) * n * num_cores, 64);
 
 	std::memcpy(R, g.R, sizeof(int) * (n + 1));
 	std::memcpy(F, g.F, sizeof(int) * (m * 2));
@@ -63,7 +63,7 @@ std::vector<float> MIC_BC::node_parallel() {
 	nocopy(C[0:m*2] : FREE)\
 	out(result_mic[0:n*num_cores] : FREE)
 	{
-		MIC_Node_Parallel(n, m, R, F, C, result_mic);
+		//MIC_Node_Parallel(n, m, R, F, C, result_mic);
 
 	}
 	for (int i = 1; i < MAX_MIC_CORE; i++)
@@ -102,9 +102,5 @@ std::vector<float> MIC_BC::opt_bc() {
 
 MIC_BC::~MIC_BC() {
 // TODO Auto-generated destructor stub
-	//free(result_mic);
-	//free(R);
-	//free(F);
-	//free(C);
 }
 

@@ -70,21 +70,21 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores) {
 	int *R;
 	int *F;
 	int *C;
-	float *result_cpu;
-	std::vector<float> result;
+	double *result_cpu;
+	std::vector<float> result(g.n,0);
 	int n = g.n;
 	int m = g.m;
 
 	R = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
 	F = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
 	C = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
-	result_cpu = (float *) _mm_malloc(sizeof(float) * n * num_cores, 64);
+	result_cpu = (double *) _mm_malloc(sizeof(double) * n * num_cores, 64);
 
 	std::memcpy(R, g.R, sizeof(int) * (n + 1));
 	std::memcpy(F, g.F, sizeof(int) * (m * 2));
 	std::memcpy(C, g.C, sizeof(int) * (m * 2));
 
-	std::memset(result_cpu, 0, sizeof(float) * n * num_cores);
+	std::memset(result_cpu, 0, sizeof(double) * n * num_cores);
 
 	MIC_Opt_BC(n, m, R, F, C, result_cpu, num_cores);
 
@@ -94,7 +94,7 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores) {
 		}
 	}
 	for (int i = 0; i < n; i++)
-		result.push_back(result_cpu[i] / 2.0f);
+		result[i] = (result_cpu[i] / 2.0f);
 
 	return result;
 }
