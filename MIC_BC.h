@@ -12,7 +12,7 @@
 #include <vector>
 #include <cstring>
 #include <iostream>
-
+#include <mutex>
 
 #include <malloc.h>
 
@@ -36,10 +36,16 @@ public:
 	MIC_BC(Graph g, int num_cores);
 	std::vector<float> result;
 	void transfer_to_mic();
+	int get_range(int *start, int *end, int want);
 	std::vector<float> node_parallel();
 	std::vector<float> opt_bc();
+	std::vector<float> hybird_opt_bc();
+
+	std::mutex lock;
+	int current_node;
 
 	int num_cores;
+	int n,m;
 
 	virtual ~MIC_BC();
 

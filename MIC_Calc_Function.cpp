@@ -23,18 +23,18 @@
 #include <cmath>
 #include <algorithm>
 #include <mutex>
+#pragma offload_attribute(pop)
 
 #define DIAMETER_SAMPLES 512
 
-#pragma offload_attribute(pop)
-
 __ONMIC__ void MIC_Node_Parallel(int n, int m, int* R, int* F, int* C,
-		float* result_mic) {
+		float* result_mic, int num_cores) {
 
+omp_set_num_threads(num_cores);
 #pragma omp parallel for
 	for (int k = 0; k < n; k++) {
 		int i = k;
-		int id_num = omp_get_thread_num() % 40;
+		int id_num = omp_get_thread_num();
 
 		std::queue<int> Q;
 		std::stack<int> S;
@@ -82,7 +82,7 @@ __ONMIC__ void MIC_WorkEfficient_Parallel(int n, int m, int* R, int* F, int* C,
 }
 
 __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
-		const int *C, double *result_mic, const int num_cores) {
+		const int *C, float *result_mic, const int num_cores) {
 
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
 	omp_set_num_threads(num_cores);
@@ -94,14 +94,14 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 			*endpoints_a[num_cores], jia, diameters[DIAMETER_SAMPLES];
 
 	for (int i = 0; i < num_cores; i++) {
-		d_a[i] = (int *) malloc(sizeof(int) * n);
-		sigma_a[i] = (unsigned long long *) malloc(
-				sizeof(unsigned long long) * n);
-		delta_a[i] = (float *) malloc(sizeof(float) * n);
-		Q2_a[i] = (int *) malloc(sizeof(int) * n);
-		Q_a[i] = (int *) malloc(sizeof(int) * n);
-		endpoints_a[i] = (int *) malloc(sizeof(int) * (n + 1));
-		S_a[i] = (int *) malloc(sizeof(int) * n);
+		d_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
+		sigma_a[i] = (unsigned long long *) _mm_malloc(
+				sizeof(unsigned long long) * n, 64);
+		delta_a[i] = (float *) _mm_malloc(sizeof(float) * n, 64);
+		Q2_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
+		Q_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
+		endpoints_a[i] = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
+		S_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
 	}
 	jia = 0;
 
@@ -148,6 +148,10 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 			d_row[i] = INT_MAX;
 			sigma_row[i] = 0;
 			delta_row[i] = 0;
+#ifdef SAMPLE
+			if(i < DIAMETER_SAMPLES)
+			diameters[i] = INT_MAX;
+#endif
 		}
 
 		d_row[start_point] = 0;
@@ -183,7 +187,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		}
 
 		while (!sp_calc_done) {
-			if (jia && (Q_len > 512)) {
+			if (0 && jia && Q_len > 512) {
 				for (int k = 0; k < 2 * m; k++) {
 					int v = F[k];
 					if (d_row[v] == current_depth) {
@@ -234,6 +238,11 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		}
 
 		current_depth = d_row[S_row[S_len - 1]] - 1;
+	//	continue;
+#ifdef SAMPLE
+		if (ind < DIAMETER_SAMPLES)
+		diameters[ind] = current_depth + 1;
+#endif
 		while (current_depth > 0) {
 			//printf("%d\n",current_depth);
 			int stack_iter_len = endpoints[current_depth + 1]
@@ -276,25 +285,26 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 			result_mic[thread_id * n + kk] += delta_row[kk];
 		}
 		//lock.unlock();
+#ifdef SAMPLE
+		if (ind == 2 * DIAMETER_SAMPLES) {
+			int diameter_keys[DIAMETER_SAMPLES];
+			for (int kk = 0; kk < DIAMETER_SAMPLES; kk++) {
+				diameter_keys[kk] = diameters[kk];
+			}
 
-//		if (ind == 2 * DIAMETER_SAMPLES) {
-//			int diameter_keys[DIAMETER_SAMPLES];
-//			for (int kk = 0; kk < DIAMETER_SAMPLES; kk++) {
-//				diameter_keys[kk] = diameters[kk];
-//			}
-//
-//			std::sort(diameter_keys, diameter_keys + DIAMETER_SAMPLES,
-//					std::greater<int>());
-//
-//			int log2n = 0;
-//			int tempn = n;
-//			while (tempn >>= 1) {
-//				++log2n;
-//			}
-//			if (diameter_keys[DIAMETER_SAMPLES / 2] < 4 * log2n) {
-//				jia = 1;
-//			}
-//		}
+			std::sort(diameter_keys, diameter_keys + DIAMETER_SAMPLES,
+					std::greater<int>());
+
+			int log2n = 0;
+			int tempn = n;
+			while (tempn >>= 1) {
+				++log2n;
+			}
+			if (diameter_keys[DIAMETER_SAMPLES / 2] < 4 * log2n) {
+				jia = 1;
+			}
+		}
+#endif
 
 	}
 }

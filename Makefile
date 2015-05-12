@@ -1,5 +1,5 @@
 CXX = icpc
-CXXFLAGS = -Wall -std=c++11 -offload -O3 -fopenmp -march=native
+CXXFLAGS = -Wall -std=c++11 -offload -O2 -fopenmp -march=native
 CXXFLAGS+= $(FLAGS)
 #CXXFLAGS+= -fp-model strict
 

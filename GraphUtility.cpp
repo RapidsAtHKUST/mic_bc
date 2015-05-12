@@ -194,7 +194,7 @@ void GraphUtility::parse_metis(char* file) {
 	}
 
 	while (std::getline(metis, line)) {
-		if (line[0] == '%') {
+		if (line[0] == '%' || line[0] == '#') {
 			continue;
 		}
 

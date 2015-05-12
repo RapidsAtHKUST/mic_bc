@@ -15,9 +15,7 @@ namespace MIC {
 int *R;
 int *F;
 int *C;
-int n;
-int m;
-double *result_mic;
+float *result_mic;
 
 }
 #pragma offload_attribute (pop)
@@ -26,6 +24,7 @@ using namespace MIC;
 
 MIC_BC::MIC_BC(Graph g, int num_cores) {
 
+	current_node = 0;
 	n = g.n;
 	m = g.m;
 	this->num_cores = num_cores;
@@ -35,7 +34,7 @@ MIC_BC::MIC_BC(Graph g, int num_cores) {
 	R = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
 	F = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
 	C = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
-	result_mic = (double *) _mm_malloc(sizeof(double) * n * num_cores, 64);
+	result_mic = (float *) _mm_malloc(sizeof(float) * n * num_cores, 64);
 
 	std::memcpy(R, g.R, sizeof(int) * (n + 1));
 	std::memcpy(F, g.F, sizeof(int) * (m * 2));
@@ -63,10 +62,10 @@ std::vector<float> MIC_BC::node_parallel() {
 	nocopy(C[0:m*2] : FREE)\
 	out(result_mic[0:n*num_cores] : FREE)
 	{
-		//MIC_Node_Parallel(n, m, R, F, C, result_mic);
+		MIC_Node_Parallel(n, m, R, F, C, result_mic,num_cores);
 
 	}
-	for (int i = 1; i < MAX_MIC_CORE; i++)
+	for (int i = 1; i < num_cores; i++)
 		for (int j = 0; j < n; j++) {
 			result_mic[j] += result_mic[i * n + j];
 		}
@@ -98,6 +97,34 @@ std::vector<float> MIC_BC::opt_bc() {
 		result.push_back(result_mic[i] / 2.0f);
 
 	return result;
+}
+
+std::vector<float> MIC_BC::hybird_opt_bc() {
+
+	int start_cpu, start_mic, end_cpu, end_mic;
+
+	while (current_node < n) {
+		int tmp;
+		tmp = get_range(&start_cpu, &end_cpu, 40);
+		printf("CPU : %d -> %d : %d\n", start_cpu, end_cpu,tmp);
+		tmp = get_range(&start_mic, &end_mic, 240);
+		printf("MIC : %d -> %d : %d\n", start_mic, end_mic,tmp);
+	}
+
+	return result;
+}
+
+int MIC_BC::get_range(int *start, int *end, int want) {
+	lock.lock();
+	if (current_node >= n)
+		return 0;
+	*start = current_node;
+	int tmp = current_node + want;
+	*end = tmp < n ? tmp : n;
+	current_node = *end;
+	lock.unlock();
+	return *end - *start;
+
 }
 
 MIC_BC::~MIC_BC() {
