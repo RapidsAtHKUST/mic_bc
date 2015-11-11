@@ -20,6 +20,7 @@
 #include "MIC_BC.h"
 
 int main(int argc, char *argv[]) {
+
 	try {
 		std::ios::sync_with_stdio(false);
 
@@ -81,6 +82,7 @@ int main(int argc, char *argv[]) {
 		if (args.verify) {
 
 			g_util.verify(g, bc_cpu, bc_mic);
+			//g_util.verify(g, bc_cpu, bc_cpu_parallel);
 
 			std::cout.precision(9);
 			std::cout << "CPU time: " << cpu_t.ms_wall / 1000.0 << " s"

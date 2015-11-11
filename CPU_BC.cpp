@@ -10,7 +10,10 @@
 
 #include "MIC_Calc_Function.h"
 
+#include "Utils.h"
+
 std::vector<float> BC_cpu(Graph g, const std::set<int>& source_vertices) {
+	std::vector<float> c(g.n, 0);
 	std::vector<float> bc(g.n, 0);
 	int end = source_vertices.empty() ? g.n : source_vertices.size();
 	std::set<int>::iterator it = source_vertices.begin();
@@ -53,7 +56,8 @@ std::vector<float> BC_cpu(Graph g, const std::set<int>& source_vertices) {
 			}
 
 			if (w != i) {
-				bc[w] += delta[w];
+				//bc[w] += delta[w];
+				KahanSum(&bc[w], &c[w], delta[w]);
 			}
 		}
 	}
@@ -87,14 +91,18 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores) {
 	std::memset(result_cpu, 0, sizeof(float) * n * num_cores);
 
 	MIC_Opt_BC(n, m, R, F, C, result_cpu, num_cores);
+	//MIC_Node_Parallel(n, m, g.R, g.F, g.C, result_cpu, num_cores);
 
-	for (int i = 1; i < num_cores; i++) {
+	std::vector<float> c(g.n, 0.0);
+
+	for (int i = 0; i < num_cores; i++) {
 		for (int j = 0; j < n; j++) {
-			result_cpu[j] += result_cpu[i * n + j];
+			//result[j] += result_cpu[i * n + j];
+			KahanSum(&result[j],&c[j],result_cpu[i * n + j]);
 		}
 	}
 	for (int i = 0; i < n; i++)
-		result[i] = (result_cpu[i] / 2.0f);
+		result[i] = (result[i] / 2.0f);
 
 	return result;
 }

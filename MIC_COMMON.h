@@ -17,7 +17,4 @@
 #define REUSE alloc_if(0) free_if(0)
 #define __ONMIC__ __attribute__((target(mic)))
 
-
-
-
 #endif /* MIC_COMMON_H_ */

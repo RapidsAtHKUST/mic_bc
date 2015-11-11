@@ -23,16 +23,19 @@
 #include <cmath>
 #include <algorithm>
 #include <mutex>
+#include "Utils.h"
 #pragma offload_attribute(pop)
 
 #define DIAMETER_SAMPLES 512
 
+__ONMIC__ std::mutex lock;
 __ONMIC__ void MIC_Node_Parallel(int n, int m, int* R, int* F, int* C,
 		float* result_mic, int num_cores) {
 
+	std::vector<float> c(n * num_cores, 0.0);
 omp_set_num_threads(num_cores);
 #pragma omp parallel for
-	for (int k = 0; k < n; k++) {
+	for (int k = 0; k <n; k++) {
 		int i = k;
 		int id_num = omp_get_thread_num();
 
@@ -69,11 +72,14 @@ omp_set_num_threads(num_cores);
 				}
 			}
 			if (w != i) {
-				result_mic[id_num * n + w] += delta[w];
+				//lock.lock();
+//#pragma omp atomic
+				KahanSum(&result_mic[id_num * n +w], &c[id_num*n+w], delta[w]);
+				//result_mic[w] += delta[w];
+				//lock.unlock();
 			}
 		}
 	}
-
 }
 
 __ONMIC__ void MIC_WorkEfficient_Parallel(int n, int m, int* R, int* F, int* C,
@@ -86,7 +92,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
 	omp_set_num_threads(num_cores);
-
+	//std::vector<float> c(n * num_cores, 0.0);// Kahan sum
 	int *d_a[num_cores];
 	unsigned long long *sigma_a[num_cores];
 	float *delta_a[num_cores];
@@ -108,11 +114,11 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 //	std::memset(diameters, 0, sizeof(diameters));
 
 //	diameters[0] = INT_MAX;
-
-#pragma omp parallel for
+	int thread_id;
+#pragma omp parallel for private(thread_id)
 	for (int ind = 0; ind < n; ind++) {
 
-		int thread_id = omp_get_thread_num();
+		thread_id = omp_get_thread_num();
 		int start_point = ind;
 
 //		std::vector<int> d_row(n, INT_MAX);
@@ -283,6 +289,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		//lock.lock();
 		for (int kk = 0; kk < n; kk++) {
 			result_mic[thread_id * n + kk] += delta_row[kk];
+			//KahanSum(&result_mic[thread_id * n +kk], &c[thread_id*n+kk], delta_row[kk]);
 		}
 		//lock.unlock();
 #ifdef SAMPLE
