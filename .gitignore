@@ -37,3 +37,5 @@ build/
 
 #graph
 graphs/
+
+*.optrpt

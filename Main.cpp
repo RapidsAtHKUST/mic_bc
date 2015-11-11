@@ -99,10 +99,12 @@ int main(int argc, char *argv[]) {
 		if (args.cpu_parallel) {
 			std::cout << "CPU parallel time: "
 					<< cpu_parallel_t.ms_wall / 1000.0 << " s" << std::endl;
+			std::cout << "CPU MTEPS: " << ((long long)g.m * g.n/1000000) / (cpu_parallel_t.ms_wall / 1000.0)
+							<< std::endl;
 		}
 		std::cout << "MIC time: " << mic_t.ms_wall / 1000.0 << " s"
 				<< std::endl;
-		std::cout << "MTEPS: " << ((long long)g.m * g.n/1000000) / (mic_t.ms_wall / 1000.0)
+		std::cout << "MIC MTEPS: " << ((long long)g.m * g.n/1000000) / (mic_t.ms_wall / 1000.0)
 				<< std::endl;
 
 	} catch (std::exception &e) {
