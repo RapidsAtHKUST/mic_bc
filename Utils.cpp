@@ -16,5 +16,5 @@ __ONMIC__ void KahanSum(float* sum, float* c, float input) {
 	*c = (t - *sum) - y;
 	*sum = t;
 
-} /* namespace utils */
+}
 

@@ -72,11 +72,11 @@ omp_set_num_threads(num_cores);
 				}
 			}
 			if (w != i) {
-				//lock.lock();
-//#pragma omp atomic
+#ifdef KAHAN
 				KahanSum(&result_mic[id_num * n +w], &c[id_num*n+w], delta[w]);
-				//result_mic[w] += delta[w];
-				//lock.unlock();
+#else
+				result_mic[id_num * n + w] += delta[w];
+#endif
 			}
 		}
 	}

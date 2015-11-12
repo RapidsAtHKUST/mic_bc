@@ -56,8 +56,11 @@ std::vector<float> BC_cpu(Graph g, const std::set<int>& source_vertices) {
 			}
 
 			if (w != i) {
-				//bc[w] += delta[w];
+#ifdef KAHAN
 				KahanSum(&bc[w], &c[w], delta[w]);
+#else
+				bc[w] += delta[w];
+#endif
 			}
 		}
 	}
@@ -93,12 +96,10 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores) {
 	MIC_Opt_BC(n, m, R, F, C, result_cpu, num_cores);
 	//MIC_Node_Parallel(n, m, g.R, g.F, g.C, result_cpu, num_cores);
 
-	std::vector<float> c(g.n, 0.0);
 
 	for (int i = 0; i < num_cores; i++) {
 		for (int j = 0; j < n; j++) {
-			//result[j] += result_cpu[i * n + j];
-			KahanSum(&result[j],&c[j],result_cpu[i * n + j]);
+			result[j] += result_cpu[i * n + j];
 		}
 	}
 	for (int i = 0; i < n; i++)
