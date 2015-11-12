@@ -1,12 +1,12 @@
 CXX = icpc
-CXXFLAGS = -Wall -std=c++11 -offload -O2 -fopenmp -march=native 
+CXXFLAGS = -std=c++11 -offload -fopenmp -O3 -march=native -fast -ipo-c 
 CXXFLAGS+= $(FLAGS)
 #CXXFLAGS+= -fp-model fast=2
 #CXXFLAGS+= -fimf-precision=high
 
 
 LIBS = 
-LDFLAGS = -offload-option,mic,compiler,"-z defs -lpthread"
+LDFLAGS = -offload-option,mic,compiler,"-z defs -lpthread" 
 PROG = mic_bc.out
 
 all : $(PROG)
@@ -17,7 +17,7 @@ OBJS = Main.o ParseArgs.o Graph.o GraphUtility.o TimeCounter.o CPU_BC.o MIC_BC.o
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(PROG) : ${OBJS}
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ $(LIBS) -o $@
+	$(CXX)  $(LDFLAGS) $^ $(LIBS) -o $@
 #	strip ${PROG}
 clean :
 	rm -f *.o *~ $(PROG)
