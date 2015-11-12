@@ -26,16 +26,16 @@
 #include "Utils.h"
 #pragma offload_attribute(pop)
 
-#define DIAMETER_SAMPLES 512
-
-__ONMIC__ std::mutex lock;
 __ONMIC__ void MIC_Node_Parallel(int n, int m, int* R, int* F, int* C,
 		float* result_mic, int num_cores) {
 
+#ifdef KAHAN
 	std::vector<float> c(n * num_cores, 0.0);
-omp_set_num_threads(num_cores);
+#endif
+
+	omp_set_num_threads(num_cores);
 #pragma omp parallel for
-	for (int k = 0; k <n; k++) {
+	for (int k = 0; k < n; k++) {
 		int i = k;
 		int id_num = omp_get_thread_num();
 
@@ -92,12 +92,11 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
 	omp_set_num_threads(num_cores);
-	//std::vector<float> c(n * num_cores, 0.0);// Kahan sum
 	int *d_a[num_cores];
 	unsigned long long *sigma_a[num_cores];
 	float *delta_a[num_cores];
 	int *Q2_a[num_cores], *Q_a[num_cores], *S_a[num_cores],
-			*endpoints_a[num_cores], jia, diameters[DIAMETER_SAMPLES];
+			*endpoints_a[num_cores];
 
 	for (int i = 0; i < num_cores; i++) {
 		d_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
@@ -109,11 +108,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		endpoints_a[i] = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
 		S_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
 	}
-	jia = 0;
-
-//	std::memset(diameters, 0, sizeof(diameters));
-
-//	diameters[0] = INT_MAX;
+	float kahan_c[n];
 	int thread_id;
 #pragma omp parallel for private(thread_id)
 	for (int ind = 0; ind < n; ind++) {
@@ -121,197 +116,78 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		thread_id = omp_get_thread_num();
 		int start_point = ind;
 
-//		std::vector<int> d_row(n, INT_MAX);
-//		std::vector<unsigned long long> sigma_row(n, 0);
-//		std::vector<double> delta_row(n, 0);
-//		std::vector<int> Q(n, 0);
-//		std::vector<int> Q2(n, 0);
-//		std::vector<int> endpoints(n + 1, 0);
-//		std::vector<int> S_row(n, 0);
-		int *d_row = d_a[thread_id];
-		unsigned long long *sigma_row = sigma_a[thread_id];
-		float *delta_row = delta_a[thread_id];
-		int *Q = Q_a[thread_id];
-		int *Q2 = Q2_a[thread_id];
+		int *d = d_a[thread_id];
+		unsigned long long *sigma = sigma_a[thread_id];
+		float *delta = delta_a[thread_id];
+		int *Q[2] = { Q_a[thread_id], Q2_a[thread_id] };
+		int *S = S_a[thread_id];
 		int *endpoints = endpoints_a[thread_id];
-		int *S_row = S_a[thread_id];
-
-		S_row[0] = start_point;
-		endpoints[0] = 0;
-		endpoints[1] = 1;
-
-		int Q_len = 0;
-		int Q2_len = 0;
-		int S_len = 1;
-		int current_depth = 0;
-		int endpoints_len = 2;
-		int sp_calc_done = false;
-
-		d_row[start_point] = 0;
-		sigma_row[start_point] = 1;
 
 		for (int i = 0; i < n; i++) {
-			d_row[i] = INT_MAX;
-			sigma_row[i] = 0;
-			delta_row[i] = 0;
-#ifdef SAMPLE
-			if(i < DIAMETER_SAMPLES)
-			diameters[i] = INT_MAX;
-#endif
+			sigma[i] = 0;
+			delta[i] = 0;
+			d[i] = INT_MAX;
 		}
+		kahan_c[start_point] = 0;
 
-		d_row[start_point] = 0;
-		sigma_row[start_point] = 1;
+		int Q_len[2] = { 0, 0 };
+		Q[0][0] = start_point;
+		Q_len[0] = 1;
+		int S_len = 0;
 
-		for (int r = R[start_point]; r < R[start_point + 1]; r++) {
-			int w = C[r];
-			if (d_row[w] == INT_MAX) {
-				d_row[w] = 1;
-				Q2[Q2_len] = w;
-				Q2_len++;
-			}
-			if (d_row[w] == (d_row[start_point] + 1)) {
-				sigma_row[w]++;
-			}
-		}
+		sigma[start_point] = 1;
+		d[start_point] = 0;
 
-		if (Q2_len == 0) {
-			sp_calc_done = true;
-		} else {
-			for (int kk = 0; kk < Q2_len; kk++) {
-				Q[kk] = Q2[kk];
-				S_row[kk + S_len] = Q2[kk];
-			}
+		endpoints[0] = 0;
+		endpoints[1] = 1;
+		int endpoints_len = 2;
 
-			endpoints[endpoints_len] = endpoints[endpoints_len - 1] + Q2_len;
-			endpoints_len++;
-			Q_len = Q2_len;
-			S_len += Q2_len;
-			Q2_len = 0;
-			current_depth++;
-
-		}
-
-		while (!sp_calc_done) {
-			if (0 && jia && Q_len > 512) {
-				for (int k = 0; k < 2 * m; k++) {
-					int v = F[k];
-					if (d_row[v] == current_depth) {
-						int w = C[k];
-						if (d_row[w] == INT_MAX) {
-							d_row[w] = d_row[v] + 1;
-							Q2[Q2_len] = w;
-							Q2_len++;
-						}
-						if (d_row[w] == (d_row[v] + 1)) {
-							sigma_row[w] += sigma_row[v];
-						}
+		for (int select = 0;; select++) {
+			unsigned short ch = select & 0x1;
+			unsigned short rch = ~ch & 0x1;
+			for (int i = 0; i < Q_len[ch]; i++) {
+				int v = Q[ch][i];
+				S[S_len] = v;
+				S_len++;
+				for (int j = R[v]; j < R[v + 1]; j++) {
+					int w = C[j];
+					if (d[w] == INT_MAX) {
+						Q[rch][Q_len[rch]++] = w;
+						d[w] = d[v] + 1;
 					}
-				}
-
-			} else { // work-efficient
-
-				for (int k = 0; k < Q_len; k++) {
-					int v = Q[k];
-					for (int r = R[v]; r < R[v + 1]; r++) {
-						int w = C[r];
-						if (d_row[w] == INT_MAX) {
-							d_row[w] = d_row[v] + 1;
-							Q2[Q2_len] = w;
-							Q2_len++;
-						}
-						if (d_row[w] == (d_row[v] + 1)) {
-							sigma_row[w] += sigma_row[v];
-						}
+					if (d[w] == (d[v] + 1)) {
+						sigma[w] += sigma[v];
 					}
 				}
 			}
-			if (Q2_len == 0) {
+			if (Q_len[rch] == 0)
 				break;
-			} else {
-				for (int kk = 0; kk < Q2_len; kk++) {
-					Q[kk] = Q2[kk];
-					S_row[kk + S_len] = Q2[kk];
-				}
-				endpoints[endpoints_len] = endpoints[endpoints_len - 1]
-						+ Q2_len;
-				endpoints_len++;
-				Q_len = Q2_len;
-				S_len += Q2_len;
-				Q2_len = 0;
-				current_depth++;
-			}
+			Q_len[ch] = 0;
+			endpoints[endpoints_len] = endpoints[endpoints_len - 1]
+					+ Q_len[rch];
+			endpoints_len++;
 		}
 
-		current_depth = d_row[S_row[S_len - 1]] - 1;
-	//	continue;
-#ifdef SAMPLE
-		if (ind < DIAMETER_SAMPLES)
-		diameters[ind] = current_depth + 1;
-#endif
-		while (current_depth > 0) {
-			//printf("%d\n",current_depth);
-			int stack_iter_len = endpoints[current_depth + 1]
-					- endpoints[current_depth];
-			if (jia && (stack_iter_len > 512)) {
-				for (int kk = 0; kk < 2 * m; kk++) {
-					int w = F[kk];
-					if (d_row[w] == current_depth) {
-						int v = C[kk];
-						if (d_row[v] == (d_row[w] + 1)) {
-							float change = (sigma_row[w] / (float) sigma_row[v])
-									* (1.0f + delta_row[v]);
-							delta_row[w] += change;
-						}
+		int current_depth = d[S[S_len -1]] -1;
+		while (current_depth) {
+			for (int kk = endpoints[current_depth]; kk < endpoints[current_depth + 1]; kk++){
+				int w = S[kk];
+				float dsw = 0;
+				float sw = (float) sigma[w];
+				for (int z = R[w]; z < R[w+1]; z++){
+					int v = C[z];
+					if(d[v] == (d[w] + 1)){
+						dsw +=(sw/(float)sigma[v])*(1.0+delta[v]);
 					}
 				}
-			} else {
-				for (int kk = endpoints[current_depth];
-						kk < endpoints[current_depth + 1]; kk++) {
-
-					int w = S_row[kk];
-					float dsw = 0;
-					float sw = (float) sigma_row[w];
-					for (int z = R[w]; z < R[w + 1]; z++) {
-						int v = C[z];
-						if (d_row[v] == (d_row[w] + 1)) {
-							dsw += (sw / (float) sigma_row[v])
-									* (1.0f + delta_row[v]);
-						}
-					}
-					delta_row[w] = dsw;
-				}
+				delta[w] = dsw;
 			}
 			current_depth--;
-
 		}
 
-		//lock.lock();
-		for (int kk = 0; kk < n; kk++) {
-			result_mic[thread_id * n + kk] += delta_row[kk];
-			//KahanSum(&result_mic[thread_id * n +kk], &c[thread_id*n+kk], delta_row[kk]);
+		for(int kk = 0; kk < n; kk++){
+			result_mic[thread_id * n + kk] += delta[kk];
 		}
-		//lock.unlock();
-#ifdef SAMPLE
-		if (ind == 2 * DIAMETER_SAMPLES) {
-			int diameter_keys[DIAMETER_SAMPLES];
-			for (int kk = 0; kk < DIAMETER_SAMPLES; kk++) {
-				diameter_keys[kk] = diameters[kk];
-			}
-
-			std::sort(diameter_keys, diameter_keys + DIAMETER_SAMPLES,
-					std::greater<int>());
-
-			int log2n = 0;
-			int tempn = n;
-			while (tempn >>= 1) {
-				++log2n;
-			}
-			if (diameter_keys[DIAMETER_SAMPLES / 2] < 4 * log2n) {
-				jia = 1;
-			}
-		}
-#endif
 
 	}
 }

@@ -19,6 +19,7 @@
 
 #include "MIC_BC.h"
 
+
 int main(int argc, char *argv[]) {
 
 	try {
@@ -72,6 +73,7 @@ int main(int argc, char *argv[]) {
 //		return 0;
 		mic_t.start_wall_time();
 		bc_mic = Mic_BC.opt_bc();
+		//bc_mic = Mic_BC.node_parallel();
 		//bc_mic = BC_cpu_parallel(g, args.num_cores_cpu);
 		//bc_mic = Mic_BC.node_parallel();
 		mic_t.stop_wall_time();
