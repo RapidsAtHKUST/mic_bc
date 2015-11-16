@@ -92,6 +92,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
 	omp_set_num_threads(num_cores);
+	//std::vector<float> c(n * num_cores, 0.0);// Kahan sum
 	int *d_a[num_cores];
 	unsigned long long *sigma_a[num_cores];
 	float *delta_a[num_cores];
@@ -108,7 +109,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		endpoints_a[i] = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
 		S_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
 	}
-	float kahan_c[n];
+
 	int thread_id;
 #pragma omp parallel for private(thread_id)
 	for (int ind = 0; ind < n; ind++) {
@@ -119,65 +120,108 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		int *d = d_a[thread_id];
 		unsigned long long *sigma = sigma_a[thread_id];
 		float *delta = delta_a[thread_id];
-		int *Q[2] = { Q_a[thread_id], Q2_a[thread_id] };
-		int *S = S_a[thread_id];
+		int *Q = Q_a[thread_id];
+		int *Q2 = Q2_a[thread_id];
 		int *endpoints = endpoints_a[thread_id];
+		int *S = S_a[thread_id];
 
-		for (int i = 0; i < n; i++) {
-			sigma[i] = 0;
-			delta[i] = 0;
-			d[i] = INT_MAX;
-		}
-		kahan_c[start_point] = 0;
-
-		int Q_len[2] = { 0, 0 };
-		Q[0][0] = start_point;
-		Q_len[0] = 1;
-		int S_len = 0;
-
-		sigma[start_point] = 1;
-		d[start_point] = 0;
-
+		S[0] = start_point;
 		endpoints[0] = 0;
 		endpoints[1] = 1;
-		int endpoints_len = 2;
 
-		for (int select = 0;; select++) {
-			unsigned short ch = select & 0x1;
-			unsigned short rch = ~ch & 0x1;
-			for (int i = 0; i < Q_len[ch]; i++) {
-				int v = Q[ch][i];
-				S[S_len] = v;
-				S_len++;
-				for (int j = R[v]; j < R[v + 1]; j++) {
-					int w = C[j];
+		int Q_len = 0;
+		int Q2_len = 0;
+		int S_len = 1;
+		int current_depth = 0;
+		int endpoints_len = 2;
+		int sp_calc_done = false;
+
+		d[start_point] = 0;
+		sigma[start_point] = 1;
+
+		for (int i = 0; i < n; i++) {
+			d[i] = INT_MAX;
+			sigma[i] = 0;
+			delta[i] = 0;
+		d[start_point] = 0;
+		sigma[start_point] = 1;
+
+		for (int r = R[start_point]; r < R[start_point + 1]; r++) {
+			int w = C[r];
+			if (d[w] == INT_MAX) {
+				d[w] = 1;
+				Q2[Q2_len] = w;
+				Q2_len++;
+			}
+			if (d[w] == (d[start_point] + 1)) {
+				sigma[w]++;
+			}
+		}
+
+		if (Q2_len == 0) {
+			sp_calc_done = true;
+		} else {
+			for (int kk = 0; kk < Q2_len; kk++) {
+				Q[kk] = Q2[kk];
+				S[kk + S_len] = Q2[kk];
+			}
+			endpoints[endpoints_len] = endpoints[endpoints_len - 1] + Q2_len;
+			endpoints_len++;
+			Q_len = Q2_len;
+			S_len += Q2_len;
+			Q2_len = 0;
+			current_depth++;
+
+		}
+		while (!sp_calc_done) {
+
+			for (int k = 0; k < Q_len; k++) {
+				int v = Q[k];
+				for (int r = R[v]; r < R[v + 1]; r++) {
+					int w = C[r];
 					if (d[w] == INT_MAX) {
-						Q[rch][Q_len[rch]++] = w;
 						d[w] = d[v] + 1;
+						Q2[Q2_len] = w;
+						Q2_len++;
 					}
 					if (d[w] == (d[v] + 1)) {
 						sigma[w] += sigma[v];
 					}
 				}
 			}
-			if (Q_len[rch] == 0)
+			if (Q2_len == 0) {
 				break;
-			Q_len[ch] = 0;
-			endpoints[endpoints_len] = endpoints[endpoints_len - 1]
-					+ Q_len[rch];
-			endpoints_len++;
+			} else {
+				for (int kk = 0; kk < Q2_len; kk++) {
+					Q[kk] = Q2[kk];
+					S[kk + S_len] = Q2[kk];
+				}
+				endpoints[endpoints_len] = endpoints[endpoints_len - 1]
+						+ Q2_len;
+				endpoints_len++;
+				Q_len = Q2_len;
+				S_len += Q2_len;
+				Q2_len = 0;
+				current_depth++;
+			}
 		}
 
-		int current_depth = d[S[S_len -1]] -1;
-		while (current_depth) {
-			for (int kk = endpoints[current_depth]; kk < endpoints[current_depth + 1]; kk++){
+		current_depth = d[S[S_len - 1]] - 1;
+
+		while (current_depth > 0) {
+			int stack_iter_len = endpoints[current_depth + 1]
+					- endpoints[current_depth];
+			for (int kk = endpoints[current_depth];
+					kk < endpoints[current_depth + 1]; kk++) {
+
 				int w = S[kk];
 				float dsw = 0;
 				float sw = (float) sigma[w];
-				for (int z = R[w]; z < R[w+1]; z++){
+				for (int z = R[w]; z < R[w + 1]; z++) {
 					int v = C[z];
-					if(d[v] == (d[w] + 1)){
-						dsw +=(sw/(float)sigma[v])*(1.0+delta[v]);
+					if (d[v] == (d[w] + 1)) {
+						dsw += (sw / (float) sigma[v])
+								* (1.0f + delta[v]);
 					}
 				}
 				delta[w] = dsw;
@@ -185,8 +229,9 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 			current_depth--;
 		}
 
-		for(int kk = 0; kk < n; kk++){
+		for (int kk = 0; kk < n; kk++) {
 			result_mic[thread_id * n + kk] += delta[kk];
+			//KahanSum(&result_mic[thread_id * n +kk], &c[thread_id*n+kk], delta_row[kk]);
 		}
 
 	}
