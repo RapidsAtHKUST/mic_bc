@@ -26,7 +26,7 @@
 #include "Utils.h"
 #pragma offload_attribute(pop)
 
-__ONMIC__ void MIC_Node_Parallel(int n, int m, int* R, int* F, int* C,
+__ONMIC__ void MIC_Coarse_Parallel(int n, int m, int* R, int* F, int* C,
 		float* result_mic, int num_cores) {
 
 #ifdef KAHAN
@@ -92,7 +92,6 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
 	omp_set_num_threads(num_cores);
-	//std::vector<float> c(n * num_cores, 0.0);// Kahan sum
 	int *d_a[num_cores];
 	unsigned long long *sigma_a[num_cores];
 	float *delta_a[num_cores];
@@ -132,9 +131,9 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		int Q_len = 0;
 		int Q2_len = 0;
 		int S_len = 1;
-		int current_depth = 0;
+		int depth = 0;
 		int endpoints_len = 2;
-		int sp_calc_done = false;
+		bool calc_done = false;
 
 		d[start_point] = 0;
 		sigma[start_point] = 1;
@@ -143,6 +142,8 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 			d[i] = INT_MAX;
 			sigma[i] = 0;
 			delta[i] = 0;
+		}
+
 		d[start_point] = 0;
 		sigma[start_point] = 1;
 
@@ -159,7 +160,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		}
 
 		if (Q2_len == 0) {
-			sp_calc_done = true;
+			calc_done = true;
 		} else {
 			for (int kk = 0; kk < Q2_len; kk++) {
 				Q[kk] = Q2[kk];
@@ -170,11 +171,10 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 			Q_len = Q2_len;
 			S_len += Q2_len;
 			Q2_len = 0;
-			current_depth++;
-
+			depth++;
 		}
-		while (!sp_calc_done) {
 
+		while (!calc_done) {
 			for (int k = 0; k < Q_len; k++) {
 				int v = Q[k];
 				for (int r = R[v]; r < R[v + 1]; r++) {
@@ -202,18 +202,15 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 				Q_len = Q2_len;
 				S_len += Q2_len;
 				Q2_len = 0;
-				current_depth++;
+				depth++;
 			}
 		}
 
-		current_depth = d[S[S_len - 1]] - 1;
+		depth = d[S[S_len - 1]] - 1;
 
-		while (current_depth > 0) {
-			int stack_iter_len = endpoints[current_depth + 1]
-					- endpoints[current_depth];
-			for (int kk = endpoints[current_depth];
-					kk < endpoints[current_depth + 1]; kk++) {
-
+		while (depth > 0) {
+			for (int kk = endpoints[depth];
+					kk < endpoints[depth + 1]; kk++) {
 				int w = S[kk];
 				float dsw = 0;
 				float sw = (float) sigma[w];
@@ -226,13 +223,11 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 				}
 				delta[w] = dsw;
 			}
-			current_depth--;
+			depth--;
 		}
 
 		for (int kk = 0; kk < n; kk++) {
 			result_mic[thread_id * n + kk] += delta[kk];
-			//KahanSum(&result_mic[thread_id * n +kk], &c[thread_id*n+kk], delta_row[kk]);
 		}
-
 	}
 }

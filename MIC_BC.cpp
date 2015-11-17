@@ -7,6 +7,7 @@
  */
 
 #include "MIC_BC.h"
+#include "Utils.h"
 
 #define DIAMETER_SAMPLES 512
 
@@ -62,7 +63,7 @@ std::vector<float> MIC_BC::node_parallel() {
 	nocopy(C[0:m*2] : FREE)\
 	out(result_mic[0:n*num_cores] : FREE)
 	{
-		MIC_Node_Parallel(n, m, R, F, C, result_mic,num_cores);
+		MIC_Coarse_Parallel(n, m, R, F, C, result_mic, num_cores);
 
 	}
 	for (int i = 1; i < num_cores; i++)
@@ -88,9 +89,17 @@ std::vector<float> MIC_BC::opt_bc() {
 		MIC_Opt_BC(n, m, R, F, C, result_mic, num_cores);
 	}
 
+#ifdef KAHAN
+	std::vector<float> c(n, 0);
+#endif
 	for (int i = 1; i < num_cores; i++) {
 		for (int j = 0; j < n; j++) {
+#ifdef KAHAN
+			KahanSum(&result_mic[j],&c[j],result_mic[i * n + j]);
+#else
 			result_mic[j] += result_mic[i * n + j];
+#endif
+
 		}
 	}
 	for (int i = 0; i < n; i++)
@@ -106,9 +115,9 @@ std::vector<float> MIC_BC::hybird_opt_bc() {
 	while (current_node < n) {
 		int tmp;
 		tmp = get_range(&start_cpu, &end_cpu, 40);
-		printf("CPU : %d -> %d : %d\n", start_cpu, end_cpu,tmp);
+		printf("CPU : %d -> %d : %d\n", start_cpu, end_cpu, tmp);
 		tmp = get_range(&start_mic, &end_mic, 240);
-		printf("MIC : %d -> %d : %d\n", start_mic, end_mic,tmp);
+		printf("MIC : %d -> %d : %d\n", start_mic, end_mic, tmp);
 	}
 
 	return result;

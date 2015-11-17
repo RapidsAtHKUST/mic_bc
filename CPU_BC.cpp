@@ -13,7 +13,9 @@
 #include "Utils.h"
 
 std::vector<float> BC_cpu(Graph g, const std::set<int>& source_vertices) {
+#ifdef KAHAN
 	std::vector<float> c(g.n, 0);
+#endif
 	std::vector<float> bc(g.n, 0);
 	int end = source_vertices.empty() ? g.n : source_vertices.size();
 	std::set<int>::iterator it = source_vertices.begin();
@@ -78,7 +80,7 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores) {
 	int *F;
 	int *C;
 	float *result_cpu;
-	std::vector<float> result(g.n,0);
+	std::vector<float> result(g.n, 0);
 	int n = g.n;
 	int m = g.m;
 
@@ -95,7 +97,6 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores) {
 
 	MIC_Opt_BC(n, m, R, F, C, result_cpu, num_cores);
 	//MIC_Node_Parallel(n, m, g.R, g.F, g.C, result_cpu, num_cores);
-
 
 	for (int i = 0; i < num_cores; i++) {
 		for (int j = 0; j < n; j++) {

@@ -1,5 +1,5 @@
 CXX = icpc
-CXXFLAGS = -std=c++11 -offload -fopenmp -O3 -fast
+CXXFLAGS = -std=c++11 -offload -fopenmp -O3 
 CXXFLAGS+= $(FLAGS)
 #CXXFLAGS+= -fp-model fast=2
 #CXXFLAGS+= -fimf-precision=high
