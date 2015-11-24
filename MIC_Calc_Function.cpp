@@ -26,8 +26,8 @@
 #include "Utils.h"
 #pragma offload_attribute(pop)
 
-__ONMIC__ void MIC_Coarse_Parallel(int n, int m, int* R, int* F, int* C,
-		float* result_mic, int num_cores) {
+__ONMIC__ void MIC_Coarse_Parallel(int n, int m, int* __NOLP__ R, int* __NOLP__ F, int* __NOLP__ C,
+		float* __NOLP__ result_mic, int num_cores) {
 
 #ifdef KAHAN
 	std::vector<float> c(n * num_cores, 0.0);
@@ -82,13 +82,95 @@ __ONMIC__ void MIC_Coarse_Parallel(int n, int m, int* R, int* F, int* C,
 	}
 }
 
-__ONMIC__ void MIC_WorkEfficient_Parallel(int n, int m, int* R, int* F, int* C,
-		float* result_mic) {
+__ONMIC__ void MIC_Level_Parallel(int n, int m, int* __NOLP__ R, int* __NOLP__ F, int* __NOLP__ C,
+		float* __NOLP__ result_mic, int num_cores) {
+
+#define CC_CHUNK 1024
+#define vector_size  8
+
+	omp_set_num_threads(num_cores);
+	int b = vector_size * 32;
+	size_t size_alloc = n;
+	size_alloc *= b / 8;
+	int n_align = b / 8;
+	char* __restrict__ neighbor = (char*) _mm_malloc(size_alloc, n_align);
+	char* __restrict__ current = (char*) _mm_malloc(size_alloc, n_align);
+	char* __restrict__ visited = (char*) _mm_malloc(size_alloc, n_align);
+	for (int s = 0; s < n; s += b) {
+		//Init
+#pragma omp parallel for schedule (dynamic, CC_CHUNK)
+		for (int i = 0; i < n; ++i) {
+			int cu[vector_size];
+#pragma unroll
+			for (int j = 0; j < vector_size; j++)
+				cu[j] = 0;
+			if (i >= s && i < s + b)
+				cu[(i - s) >> 5] = 1 << ((i - s) & 0x1F);
+#pragma unroll
+			for (int k = 0; k < vector_size; ++k)
+				((int*) current)[i * vector_size + k] = cu[k];
+#pragma unroll
+			for (int k = 0; k < vector_size; ++k)
+				((int*) visited)[i * vector_size + k] = cu[k];
+		}
+		int cont = 1;
+		int level = 0;
+		while (cont != 0) {
+			cont = 0;
+			++level;
+			//SpMM
+#pragma omp parallel for schedule (dynamic,CC_CHUNK)
+			for (int i = 0; i < n; ++i) {
+				int vali[vector_size];
+#pragma unroll
+				for (int k = 0; k < vector_size; ++k)
+					vali[k] = 0;
+				for (int j = R[i]; j < R[i + 1]; ++j) {
+					int v = C[j];
+#pragma unroll
+					for (int k = 0; k < vector_size; k++)
+						vali[k] = vali[k]
+								| ((int*) current)[v * vector_size + k];
+				}
+#pragma unroll
+				for (int k = 0; k < vector_size; ++k)
+					((int*) neighbor)[i * vector_size + k] = vali[k];
+			}
+			//Update
+			float flevel = 1.0f / (float) level;
+#pragma omp parallel for schedule (dynamic,CC_CHUNK)
+			for (int i = 0; i < n; ++i) {
+				int cu[vector_size];
+#pragma unroll
+				for (int k = 0; k < vector_size; k++)
+					cu[k] = ((int*) neighbor)[i * vector_size + k]
+							& ~((int*) visited)[i * vector_size + k];
+#pragma unroll
+				for (int k = 0; k < vector_size; k++)
+					((int*) visited)[i * vector_size + k] = cu[k]
+							| ((int*) visited)[i * vector_size + k];
+				int bcount = 0;
+#pragma unroll
+				for (int k = 0; k < vector_size; k++)
+					bcount += (cu[k]);
+				if (bcount > 0) {
+					result_mic[i] += bcount * flevel;
+					cont = 1;
+				}
+#pragma unroll
+				for (int k = 0; k < vector_size; ++k)
+					((int*) current)[i * vector_size + k] = cu[k];
+			}
+		}
+	}
+	_mm_free(neighbor);
+	_mm_free(current);
+	_mm_free(visited);
 
 }
 
-__ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
-		const int *C, float *result_mic, const int num_cores) {
+__ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R, const int* __NOLP__ F,
+		const int* __NOLP__ C, float* __NOLP__ result_mic, const int num_cores) {
 
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
 	omp_set_num_threads(num_cores);
@@ -116,13 +198,13 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		thread_id = omp_get_thread_num();
 		int start_point = ind;
 
-		int *d = d_a[thread_id];
-		unsigned long long *sigma = sigma_a[thread_id];
-		float *delta = delta_a[thread_id];
-		int *Q = Q_a[thread_id];
-		int *Q2 = Q2_a[thread_id];
-		int *endpoints = endpoints_a[thread_id];
-		int *S = S_a[thread_id];
+		int* __NOLP__ d = d_a[thread_id];
+		unsigned long long* __NOLP__ sigma = sigma_a[thread_id];
+		float* __NOLP__ delta = delta_a[thread_id];
+		int* __NOLP__ Q = Q_a[thread_id];
+		int* __NOLP__ Q2 = Q2_a[thread_id];
+		int* __NOLP__ endpoints = endpoints_a[thread_id];
+		int* __NOLP__ S = S_a[thread_id];
 
 		S[0] = start_point;
 		endpoints[0] = 0;
@@ -209,16 +291,14 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R, const int *F,
 		depth = d[S[S_len - 1]] - 1;
 
 		while (depth > 0) {
-			for (int kk = endpoints[depth];
-					kk < endpoints[depth + 1]; kk++) {
+			for (int kk = endpoints[depth]; kk < endpoints[depth + 1]; kk++) {
 				int w = S[kk];
 				float dsw = 0;
 				float sw = (float) sigma[w];
 				for (int z = R[w]; z < R[w + 1]; z++) {
 					int v = C[z];
 					if (d[v] == (d[w] + 1)) {
-						dsw += (sw / (float) sigma[v])
-								* (1.0f + delta[v]);
+						dsw += (sw / (float) sigma[v]) * (1.0f + delta[v]);
 					}
 				}
 				delta[w] = dsw;

@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
 //		Mic_BC.hybird_opt_bc();
 //		return 0;
 		mic_t.start_wall_time();
-		bc_mic = Mic_BC.opt_bc();
+		//bc_mic = Mic_BC.opt_bc();
 		//bc_mic = Mic_BC.node_parallel();
 		//bc_mic = BC_cpu_parallel(g, args.num_cores_cpu);
 		//bc_mic = Mic_BC.node_parallel();

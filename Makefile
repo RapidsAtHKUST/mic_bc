@@ -1,5 +1,5 @@
 CXX = icpc
-CXXFLAGS = -std=c++11 -offload -fopenmp -O3 
+CXXFLAGS = -std=c++11 -offload -fopenmp -O2 
 CXXFLAGS+= $(FLAGS)
 #CXXFLAGS+= -fp-model fast=2
 #CXXFLAGS+= -fimf-precision=high
@@ -18,6 +18,6 @@ OBJS = Main.o ParseArgs.o Graph.o GraphUtility.o TimeCounter.o CPU_BC.o MIC_BC.o
 
 $(PROG) : ${OBJS}
 	$(CXX)  ${CXXFLAGS} $(LDFLAGS) $^ $(LIBS) -o $@
-	strip ${PROG}
+#	strip ${PROG}
 clean :
 	rm -f *.o *~ $(PROG)

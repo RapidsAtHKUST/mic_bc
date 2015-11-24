@@ -16,5 +16,7 @@
 #define FREE alloc_if(0) free_if(1)
 #define REUSE alloc_if(0) free_if(0)
 #define __ONMIC__ __attribute__((target(mic)))
+//NOLP -> no overlap
+#define __NOLP__ __restrict__
 
 #endif /* MIC_COMMON_H_ */
