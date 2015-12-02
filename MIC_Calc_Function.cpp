@@ -26,8 +26,9 @@
 #include "Utils.h"
 #pragma offload_attribute(pop)
 
-__ONMIC__ void MIC_Coarse_Parallel(int n, int m, int* __NOLP__ R, int* __NOLP__ F, int* __NOLP__ C,
-		float* __NOLP__ result_mic, int num_cores) {
+__ONMIC__ void MIC_Coarse_Parallel(int n, int m, int* __NOLP__ R,
+		int* __NOLP__ F, int* __NOLP__ C, float* __NOLP__ result_mic,
+		int num_cores) {
 
 #ifdef KAHAN
 	std::vector<float> c(n * num_cores, 0.0);
@@ -82,8 +83,9 @@ __ONMIC__ void MIC_Coarse_Parallel(int n, int m, int* __NOLP__ R, int* __NOLP__ 
 	}
 }
 
-__ONMIC__ void MIC_Level_Parallel(int n, int m, int* __NOLP__ R, int* __NOLP__ F, int* __NOLP__ C,
-		float* __NOLP__ result_mic, int num_cores) {
+__ONMIC__ void MIC_Level_Parallel(int n, int m, int* __NOLP__ R,
+		int* __NOLP__ F, int* __NOLP__ C, float* __NOLP__ result_mic,
+		int num_cores) {
 
 #define CC_CHUNK 1024
 #define vector_size  8
@@ -169,9 +171,11 @@ __ONMIC__ void MIC_Level_Parallel(int n, int m, int* __NOLP__ R, int* __NOLP__ F
 
 }
 
-__ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R, const int* __NOLP__ F,
-		const int* __NOLP__ C, float* __NOLP__ result_mic, const int num_cores) {
+__ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
+		const int* __NOLP__ F, const int* __NOLP__ C,
+		float* __NOLP__ result_mic, const int num_cores) {
 
+#define THOLD 0.75
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
 	omp_set_num_threads(num_cores);
 	int *d_a[num_cores];
@@ -179,6 +183,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R, const
 	float *delta_a[num_cores];
 	int *Q2_a[num_cores], *Q_a[num_cores], *S_a[num_cores],
 			*endpoints_a[num_cores];
+	unsigned long long* dia_a[num_cores];
 
 	for (int i = 0; i < num_cores; i++) {
 		d_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
@@ -189,8 +194,10 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R, const
 		Q_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
 		endpoints_a[i] = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
 		S_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
+		dia_a[i] = (unsigned long long*) _mm_malloc(
+				sizeof(unsigned long long) * n, 64);
 	}
-
+	int edge_count_main = 0;
 	int thread_id;
 #pragma omp parallel for private(thread_id)
 	for (int ind = 0; ind < n; ind++) {
@@ -205,6 +212,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R, const
 		int* __NOLP__ Q2 = Q2_a[thread_id];
 		int* __NOLP__ endpoints = endpoints_a[thread_id];
 		int* __NOLP__ S = S_a[thread_id];
+		unsigned long long* __NOLP__ dia = dia_a[thread_id];
 
 		S[0] = start_point;
 		endpoints[0] = 0;
@@ -217,6 +225,8 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R, const
 		int endpoints_len = 2;
 		bool calc_done = false;
 
+		int edge_count = 0, we_count = 0;
+
 		d[start_point] = 0;
 		sigma[start_point] = 1;
 
@@ -224,6 +234,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R, const
 			d[i] = INT_MAX;
 			sigma[i] = 0;
 			delta[i] = 0;
+			dia[i] = 0;
 		}
 
 		d[start_point] = 0;
@@ -245,8 +256,10 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R, const
 			calc_done = true;
 		} else {
 			for (int kk = 0; kk < Q2_len; kk++) {
-				Q[kk] = Q2[kk];
-				S[kk + S_len] = Q2[kk];
+				int v = Q2[kk];
+				Q[kk] = v;
+				dia[depth + 1] += R[v + 1] - R[v];
+				S[kk + S_len] = v;
 			}
 			endpoints[endpoints_len] = endpoints[endpoints_len - 1] + Q2_len;
 			endpoints_len++;
@@ -257,17 +270,36 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R, const
 		}
 
 		while (!calc_done) {
-			for (int k = 0; k < Q_len; k++) {
-				int v = Q[k];
-				for (int r = R[v]; r < R[v + 1]; r++) {
-					int w = C[r];
-					if (d[w] == INT_MAX) {
-						d[w] = d[v] + 1;
-						Q2[Q2_len] = w;
-						Q2_len++;
+			if (dia[depth] <= THOLD * m) {
+				we_count ++;
+				for (int k = 0; k < Q_len; k++) {
+					int v = Q[k];
+					for (int r = R[v]; r < R[v + 1]; r++) {
+						int w = C[r];
+						if (d[w] == INT_MAX) {
+							d[w] = d[v] + 1;
+							Q2[Q2_len] = w;
+							Q2_len++;
+						}
+						if (d[w] == (d[v] + 1)) {
+							sigma[w] += sigma[v];
+						}
 					}
-					if (d[w] == (d[v] + 1)) {
-						sigma[w] += sigma[v];
+				}
+			} else {
+				edge_count++;
+				for (int k = 0; k < 2 * m; k++) {
+					int v = F[k];
+					if (d[v] == depth) {
+						int w = C[k];
+						if (d[w] == INT_MAX) {
+							d[w] = d[v] + 1;
+							Q2[Q2_len] = w;
+							Q2_len++;
+						}
+						if (d[w] == (d[v] + 1)) {
+							sigma[w] += sigma[v];
+						}
 					}
 				}
 			}
@@ -275,8 +307,10 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R, const
 				break;
 			} else {
 				for (int kk = 0; kk < Q2_len; kk++) {
-					Q[kk] = Q2[kk];
-					S[kk + S_len] = Q2[kk];
+					int v = Q2[kk];
+					Q[kk] = v;
+					dia[depth + 1] += R[v + 1] - R[v];
+					S[kk + S_len] = v;
 				}
 				endpoints[endpoints_len] = endpoints[endpoints_len - 1]
 						+ Q2_len;
@@ -290,18 +324,36 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R, const
 
 		depth = d[S[S_len - 1]] - 1;
 
+//#pragma omp atomic
+//		edge_count_main = edge_count_main + edge_count;
+
 		while (depth > 0) {
-			for (int kk = endpoints[depth]; kk < endpoints[depth + 1]; kk++) {
-				int w = S[kk];
-				float dsw = 0;
-				float sw = (float) sigma[w];
-				for (int z = R[w]; z < R[w + 1]; z++) {
-					int v = C[z];
-					if (d[v] == (d[w] + 1)) {
-						dsw += (sw / (float) sigma[v]) * (1.0f + delta[v]);
+			if (dia[depth] <= THOLD * m) {
+				for (int kk = endpoints[depth]; kk < endpoints[depth + 1];
+						kk++) {
+					int w = S[kk];
+					float dsw = 0;
+					float sw = (float) sigma[w];
+					for (int z = R[w]; z < R[w + 1]; z++) {
+						int v = C[z];
+						if (d[v] == (d[w] + 1)) {
+							dsw += (sw / (float) sigma[v]) * (1.0f + delta[v]);
+						}
+					}
+					delta[w] = dsw;
+				}
+			} else {
+				for (int kk = 0; kk < 2 * m; kk++) {
+					int w = F[kk];
+					if (d[w] == depth) {
+						int v = C[kk];
+						if (d[v] == (d[w] + 1)) {
+							float change = (sigma[w] / (float) sigma[v])
+									* (1.0f + delta[v]);
+							delta[w] += change;
+						}
 					}
 				}
-				delta[w] = dsw;
 			}
 			depth--;
 		}
@@ -310,4 +362,5 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R, const
 			result_mic[thread_id * n + kk] += delta[kk];
 		}
 	}
+	//printf("%d\n",edge_count_main);
 }
