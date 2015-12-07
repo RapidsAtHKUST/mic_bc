@@ -86,7 +86,7 @@ std::vector<float> MIC_BC::opt_bc() {
 		nocopy(C[0:m*2] : FREE)\
 		out(result_mic[0:n*num_cores] : FREE)
 	{
-		MIC_Opt_BC(n, m, R, F, C, result_mic, num_cores);
+		MIC_Opt_BC(n, m, R, F, C, result_mic, num_cores, true);
 	}
 
 #ifdef KAHAN

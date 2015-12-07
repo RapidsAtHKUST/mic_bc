@@ -173,9 +173,9 @@ __ONMIC__ void MIC_Level_Parallel(int n, int m, int* __NOLP__ R,
 
 __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 		const int* __NOLP__ F, const int* __NOLP__ C,
-		float* __NOLP__ result_mic, const int num_cores) {
+		float* __NOLP__ result_mic, const int num_cores, bool allow_edge) {
 
-#define THOLD 0.75
+#define THOLD 0.8
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
 	omp_set_num_threads(num_cores);
 	int *d_a[num_cores];
@@ -183,7 +183,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 	float *delta_a[num_cores];
 	int *Q2_a[num_cores], *Q_a[num_cores], *S_a[num_cores],
 			*endpoints_a[num_cores];
-	unsigned long long* dia_a[num_cores];
+	unsigned long long* succeed_count_a[num_cores];
 
 	for (int i = 0; i < num_cores; i++) {
 		d_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
@@ -194,7 +194,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 		Q_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
 		endpoints_a[i] = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
 		S_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
-		dia_a[i] = (unsigned long long*) _mm_malloc(
+		succeed_count_a[i] = (unsigned long long*) _mm_malloc(
 				sizeof(unsigned long long) * n, 64);
 	}
 	int edge_count_main = 0;
@@ -212,7 +212,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 		int* __NOLP__ Q2 = Q2_a[thread_id];
 		int* __NOLP__ endpoints = endpoints_a[thread_id];
 		int* __NOLP__ S = S_a[thread_id];
-		unsigned long long* __NOLP__ dia = dia_a[thread_id];
+		unsigned long long* __NOLP__ successors_count = succeed_count_a[thread_id];
 
 		S[0] = start_point;
 		endpoints[0] = 0;
@@ -234,7 +234,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 			d[i] = INT_MAX;
 			sigma[i] = 0;
 			delta[i] = 0;
-			dia[i] = 0;
+			successors_count[i] = 0;
 		}
 
 		d[start_point] = 0;
@@ -258,7 +258,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 			for (int kk = 0; kk < Q2_len; kk++) {
 				int v = Q2[kk];
 				Q[kk] = v;
-				dia[depth + 1] += R[v + 1] - R[v];
+				successors_count[depth + 1] += R[v + 1] - R[v];
 				S[kk + S_len] = v;
 			}
 			endpoints[endpoints_len] = endpoints[endpoints_len - 1] + Q2_len;
@@ -270,8 +270,8 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 		}
 
 		while (!calc_done) {
-			if (dia[depth] <= THOLD * m) {
-				we_count ++;
+			if (!allow_edge || successors_count[depth] < THOLD * m) {
+				we_count++;
 				for (int k = 0; k < Q_len; k++) {
 					int v = Q[k];
 					for (int r = R[v]; r < R[v + 1]; r++) {
@@ -309,7 +309,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 				for (int kk = 0; kk < Q2_len; kk++) {
 					int v = Q2[kk];
 					Q[kk] = v;
-					dia[depth + 1] += R[v + 1] - R[v];
+					successors_count[depth + 1] += R[v + 1] - R[v];
 					S[kk + S_len] = v;
 				}
 				endpoints[endpoints_len] = endpoints[endpoints_len - 1]
@@ -328,7 +328,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 //		edge_count_main = edge_count_main + edge_count;
 
 		while (depth > 0) {
-			if (dia[depth] <= THOLD * m) {
+			if (!allow_edge || successors_count[depth] <= THOLD * m) {
 				for (int kk = endpoints[depth]; kk < endpoints[depth + 1];
 						kk++) {
 					int w = S[kk];

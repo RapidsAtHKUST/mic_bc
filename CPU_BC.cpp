@@ -96,7 +96,7 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores) {
 	std::memset(result_cpu, 0, sizeof(float) * n * num_cores);
 
 	//MIC_Level_Parallel(n, m, R, F, C, result_cpu, num_cores);
-	MIC_Opt_BC(n, m, R, F, C, result_cpu, num_cores);
+	MIC_Opt_BC(n, m, R, F, C, result_cpu, num_cores, true);
 	//MIC_Node_Parallel(n, m, g.R, g.F, g.C, result_cpu, num_cores);
 
 	for (int i = 0; i < num_cores; i++) {
