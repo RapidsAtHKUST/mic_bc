@@ -19,7 +19,6 @@
 
 #include "MIC_BC.h"
 
-
 int main(int argc, char *argv[]) {
 
 	try {
@@ -41,7 +40,7 @@ int main(int argc, char *argv[]) {
 				<< std::endl;
 
 		std::cout << "\nNumber of nodes: " << g.n << std::endl;
-		std::cout << "Number of edges: " << g.m << std::endl;
+		std::cout << "Number of edges: " << g.m << << "\n" << std::endl;
 
 		TimeCounter cpu_t;
 		TimeCounter mic_t;
@@ -65,22 +64,36 @@ int main(int argc, char *argv[]) {
 			cpu_parallel_t.start_wall_time();
 			bc_cpu_parallel = BC_cpu_parallel(g, args.num_cores_cpu);
 			cpu_parallel_t.stop_wall_time();
+			std::cout << "CPU parallel time: "
+					<< cpu_parallel_t.ms_wall / 1000.0 << " s" << std::endl;
+			std::cout << "CPU MTEPS: "
+					<< ((long long) g.m * g.n / 1000000)
+							/ (cpu_parallel_t.ms_wall / 1000.0) << "\n"
+					<< std::endl;
 		}
 
 		MIC_BC Mic_BC(g, args.num_cores_mic);
 
 //		Mic_BC.hybird_opt_bc();
 		mic_t.start_wall_time();
-		//bc_mic = Mic_BC.opt_bc();
+		bc_mic = Mic_BC.opt_bc();
 		//bc_mic = Mic_BC.node_parallel();
 		//bc_mic = BC_cpu_parallel(g, args.num_cores_cpu);
 		//bc_mic = Mic_BC.node_parallel();
 		mic_t.stop_wall_time();
 
+		std::cout << "MIC time: " << mic_t.ms_wall / 1000.0 << " s"
+				<< std::endl;
+		std::cout << "MIC MTEPS: "
+				<< ((long long) g.m * g.n / 1000000) / (mic_t.ms_wall / 1000.0)
+				<< "\n" << std::endl;
+
 		if (args.printResult) {
 			g_util.print_BC_scores(bc_cpu, nullptr);
 		}
 		if (args.verify) {
+
+			std::cout << "Verifying..." << std::endl;
 
 			g_util.verify(g, bc_cpu, bc_mic);
 			//g_util.verify(g, bc_cpu, bc_cpu_parallel);
@@ -98,17 +111,6 @@ int main(int argc, char *argv[]) {
 			outcpu.close();
 			outmic.close();
 		}
-
-		if (args.cpu_parallel) {
-			std::cout << "CPU parallel time: "
-					<< cpu_parallel_t.ms_wall / 1000.0 << " s" << std::endl;
-			std::cout << "CPU MTEPS: " << ((long long)g.m * g.n/1000000) / (cpu_parallel_t.ms_wall / 1000.0)
-							<< std::endl;
-		}
-		std::cout << "MIC time: " << mic_t.ms_wall / 1000.0 << " s"
-				<< std::endl;
-		std::cout << "MIC MTEPS: " << ((long long)g.m * g.n/1000000) / (mic_t.ms_wall / 1000.0)
-				<< std::endl;
 
 	} catch (std::exception &e) {
 		std::cout << e.what() << std::endl;
