@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
 				<< std::endl;
 
 		std::cout << "\nNumber of nodes: " << g.n << std::endl;
-		std::cout << "Number of edges: " << g.m << << "\n" << std::endl;
+		std::cout << "Number of edges: " << g.m << "\n" << std::endl;
 
 		TimeCounter cpu_t;
 		TimeCounter mic_t;
