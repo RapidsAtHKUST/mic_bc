@@ -212,7 +212,8 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 		int* __NOLP__ Q2 = Q2_a[thread_id];
 		int* __NOLP__ endpoints = endpoints_a[thread_id];
 		int* __NOLP__ S = S_a[thread_id];
-		unsigned long long* __NOLP__ successors_count = succeed_count_a[thread_id];
+		unsigned long long* __NOLP__ successors_count =
+				succeed_count_a[thread_id];
 
 		S[0] = start_point;
 		endpoints[0] = 0;
@@ -270,12 +271,11 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 		}
 
 		while (!calc_done) {
-			if (!allow_edge || successors_count[depth] < THOLD * m) {
-				we_count++;
-				for (int k = 0; k < Q_len; k++) {
-					int v = Q[k];
-					for (int r = R[v]; r < R[v + 1]; r++) {
-						int w = C[r];
+			if (allow_edge && successors_count[depth] > THOLD * m) {
+				for (int k = 0; k < 2 * m; k++) {
+					int v = F[k];
+					if (d[v] == depth) {
+						int w = C[k];
 						if (d[w] == INT_MAX) {
 							d[w] = d[v] + 1;
 							Q2[Q2_len] = w;
@@ -287,11 +287,10 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 					}
 				}
 			} else {
-				edge_count++;
-				for (int k = 0; k < 2 * m; k++) {
-					int v = F[k];
-					if (d[v] == depth) {
-						int w = C[k];
+				for (int k = 0; k < Q_len; k++) {
+					int v = Q[k];
+					for (int r = R[v]; r < R[v + 1]; r++) {
+						int w = C[r];
 						if (d[w] == INT_MAX) {
 							d[w] = d[v] + 1;
 							Q2[Q2_len] = w;
@@ -328,7 +327,19 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 //		edge_count_main = edge_count_main + edge_count;
 
 		while (depth > 0) {
-			if (!allow_edge || successors_count[depth] <= THOLD * m) {
+			if (allow_edge && successors_count[depth] > THOLD * m) {
+				for (int kk = 0; kk < 2 * m; kk++) {
+					int w = F[kk];
+					if (d[w] == depth) {
+						int v = C[kk];
+						if (d[v] == (d[w] + 1)) {
+							float change = (sigma[w] / (float) sigma[v])
+									* (1.0f + delta[v]);
+							delta[w] += change;
+						}
+					}
+				}
+			} else {
 				for (int kk = endpoints[depth]; kk < endpoints[depth + 1];
 						kk++) {
 					int w = S[kk];
@@ -341,18 +352,6 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 						}
 					}
 					delta[w] = dsw;
-				}
-			} else {
-				for (int kk = 0; kk < 2 * m; kk++) {
-					int w = F[kk];
-					if (d[w] == depth) {
-						int v = C[kk];
-						if (d[v] == (d[w] + 1)) {
-							float change = (sigma[w] / (float) sigma[v])
-									* (1.0f + delta[v]);
-							delta[w] += change;
-						}
-					}
 				}
 			}
 			depth--;
