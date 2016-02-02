@@ -189,8 +189,10 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 	int dia_sample[SAMPLES];
 	int edge_traversal = false;
 
+#ifdef __MIC__
 // There are only 16 memory channels
 #pragma omp parallel for num_threads(16)
+#endif
 	for (int i = 0; i < num_cores; i++) {
 		d_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
 		sigma_a[i] = (unsigned long long *) _mm_malloc(
@@ -242,19 +244,17 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 		d[start_point] = 0;
 		sigma[start_point] = 1;
 
-		for (int i = 0; i < n; i++) {
-			d[i] = INT_MAX;
-			sigma[i] = 0;
-			delta[i] = 0;
-			successors_count[i] = 0;
-		}
+		memset(d, 0xef, sizeof(int) * n);
+		memset(sigma, 0, sizeof(unsigned long long) * n);
+		memset(delta, 0, sizeof(float) * n);
+		memset(successors_count, 0, sizeof(unsigned long long) * n);
 
 		d[start_point] = 0;
 		sigma[start_point] = 1;
 
 		for (int r = R[start_point]; r < R[start_point + 1]; r++) {
 			int w = C[r];
-			if (d[w] == INT_MAX) {
+			if (d[w] == 0xefefefef) {
 				d[w] = 1;
 				Q2[Q2_len] = w;
 				Q2_len++;
@@ -282,12 +282,13 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 		}
 
 		while (!calc_done) {
-			if (allow_edge && edge_traversal && successors_count[depth] > THOLD * m) {
+			if (allow_edge && edge_traversal
+					&& successors_count[depth] > THOLD * m) {
 				for (int k = 0; k < 2 * m; k++) {
 					int v = F[k];
 					if (d[v] == depth) {
 						int w = C[k];
-						if (d[w] == INT_MAX) {
+						if (d[w] == 0xefefefef) {
 							d[w] = d[v] + 1;
 							Q2[Q2_len] = w;
 							Q2_len++;
@@ -302,7 +303,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 					int v = Q[k];
 					for (int r = R[v]; r < R[v + 1]; r++) {
 						int w = C[r];
-						if (d[w] == INT_MAX) {
+						if (d[w] == 0xefefefef) {
 							d[w] = d[v] + 1;
 							Q2[Q2_len] = w;
 							Q2_len++;
@@ -340,7 +341,8 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 //		edge_count_main = edge_count_main + edge_count;
 
 		while (depth > 0) {
-			if (allow_edge && edge_traversal && successors_count[depth] > THOLD * m) {
+			if (allow_edge && edge_traversal
+					&& successors_count[depth] > THOLD * m) {
 				for (int kk = 0; kk < 2 * m; kk++) {
 					int w = F[kk];
 					if (d[w] == depth) {
@@ -374,14 +376,14 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 			result_mic[thread_id * n + kk] += delta[kk];
 		}
 
-		if(start_point == SAMPLES){
-			std::sort(dia_sample, dia_sample+SAMPLES, std::less<int>());
+		if (start_point == SAMPLES) {
+			std::sort(dia_sample, dia_sample + SAMPLES, std::less<int>());
 		}
 		int log2n = 0;
 		int tempn = n;
-		while(tempn >>= 1)
+		while (tempn >>= 1)
 			++log2n;
-		if(dia_sample[SAMPLES/2] < 4*log2n){
+		if (dia_sample[SAMPLES / 2] < 4 * log2n) {
 			edge_traversal = true;
 		}
 	}
