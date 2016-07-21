@@ -38,6 +38,7 @@ public:
 	void parse_metis(char *file);
 	void parse_edgelist(char *file);
 
+	void reduce_1_degree_vertices(Graph *in_g, Graph *out_g);
 	void verify(Graph g,const std::vector<float> bc_cpu, const std::vector<float> bc_mic);
 
 	bool is_number(const std::string& s);
