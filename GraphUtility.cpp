@@ -8,9 +8,6 @@
 
 #include "GraphUtility.h"
 
-#include <cmath>
-#include <tgmath.h>
-
 GraphUtility::GraphUtility(Graph *g) {
     this->g = g;
 }
@@ -18,8 +15,8 @@ GraphUtility::GraphUtility(Graph *g) {
 void GraphUtility::print_adjacency_list() {
     if (g->R == NULL) {
         std::cerr
-        << "Error: Attempt to print adjacency list of graph that has not been parsed."
-        << std::endl;
+                << "Error: Attempt to print adjacency list of graph that has not been parsed."
+                << std::endl;
         exit(-1);
     }
 
@@ -47,7 +44,7 @@ void GraphUtility::print_adjacency_list() {
     }
 }
 
-void GraphUtility::print_BC_scores(const std::vector<float> bc, char *outfile) {
+void GraphUtility::print_BC_scores(std::vector<float> bc, char *outfile) {
     std::ofstream ofs;
     if (outfile != NULL) {
         ofs.open(outfile, std::ios::out);
@@ -68,8 +65,8 @@ void GraphUtility::print_BC_scores(const std::vector<float> bc, char *outfile) {
 void GraphUtility::print_CSR() {
     if ((g->R == NULL) || (g->C == NULL) || (g->F == NULL)) {
         std::cerr
-        << "Error: Attempt to print CSR of a graph that has not been parsed."
-        << std::endl;
+                << "Error: Attempt to print CSR of a graph that has not been parsed."
+                << std::endl;
         exit(-1);
     }
 
@@ -104,8 +101,8 @@ void GraphUtility::print_CSR() {
 void GraphUtility::print_R() {
     if (g->R == NULL) {
         std::cerr
-        << "Error: Attempt to print CSR of a graph that has not been parsed."
-        << std::endl;
+                << "Error: Attempt to print CSR of a graph that has not been parsed."
+                << std::endl;
     }
 
     std::cout << "R = [";
@@ -121,8 +118,8 @@ void GraphUtility::print_R() {
 void GraphUtility::print_high_degree_vertices() {
     if (g->R == NULL) {
         std::cerr
-        << "Error: Attempt to search adjacency list of graph that has not been parsed."
-        << std::endl;
+                << "Error: Attempt to search adjacency list of graph that has not been parsed."
+                << std::endl;
         exit(-1);
     }
 
@@ -152,8 +149,8 @@ void GraphUtility::print_numerical_edge_file(char *outfile) {
 void GraphUtility::print_number_of_isolated_vertices() {
     if (g->R == NULL) {
         std::cerr
-        << "Error: Attempt to print CSR of a graph that has not been parsed."
-        << std::endl;
+                << "Error: Attempt to print CSR of a graph that has not been parsed."
+                << std::endl;
     }
 
     int isolated = 0;
@@ -216,12 +213,12 @@ void GraphUtility::parse_metis(char *file) {
             g->m = std::stoi(splitvec[1]);
             if (splitvec.size() > 3) {
                 std::cerr << "Error: Weighted graphs are not yet supported."
-                << std::endl;
+                          << std::endl;
                 exit(-2);
             } else if ((splitvec.size() == 3)
                        && (std::stoi(splitvec[2]) != 0)) {
                 std::cerr << "Error: Weighted graphs are not yet supported."
-                << std::endl;
+                          << std::endl;
                 exit(-2);
             }
             firstline = false;
@@ -278,8 +275,8 @@ void GraphUtility::parse_edgelist(char *file) {
 
         if (splitvec.size() != 2) {
             std::cerr
-            << "Warning: Found a row that does not represent an edge or comment."
-            << std::endl;
+                    << "Warning: Found a row that does not represent an edge or comment."
+                    << std::endl;
             std::cerr << "Row in question: " << std::endl;
             for (unsigned i = 0; i < splitvec.size(); i++) {
                 std::cout << splitvec[i] << std::endl;
@@ -323,10 +320,10 @@ void GraphUtility::parse_edgelist(char *file) {
         } else {
             if (itf->second == itc->second) {
                 std::cerr << "Error: self edge! " << itf->second << " -> "
-                << itc->second << std::endl;
+                          << itc->second << std::endl;
                 std::cerr
-                << "Aborting. Graphs with self-edges aren't supported."
-                << std::endl;
+                        << "Aborting. Graphs with self-edges aren't supported."
+                        << std::endl;
                 exit(-1);
             }
             g->F[2 * i] = itf->second;
@@ -389,7 +386,50 @@ void GraphUtility::verify(Graph g, const std::vector<float> bc_cpu,
 }
 
 void GraphUtility::reduce_1_degree_vertices(Graph *in_g, Graph *out_g) {
+    out_g->weitht = new int[in_g->n];
+    out_g->R = new int[in_g->n + 1];
+    out_g->F = new int[in_g->m * 2];
+    out_g->C = new int[in_g->m * 2];
+    out_g->bc = new int[in_g->n];
+    out_g->n = in_g->n;
+    out_g->m = in_g->m;
 
+    std::memset(out_g->bc, 0, in_g->n * sizeof(int));
+    std::fill_n(out_g->weitht, in_g->n, 1);
+
+    for (int i = 0; i < in_g->n; i++) {
+        if (in_g->R[i + 1] - in_g->R[i] == 1) {
+            int v = in_g->C[in_g->R[i]];
+            out_g->weitht[v]++;
+            //in_g->R[i] = in_g->n;
+            out_g->m --;
+            in_g->C[in_g->R[i]] = -1;
+            for (int j = in_g->R[v]; j < in_g->R[v + 1]; ++j) {
+                if (in_g->C[j] == i) {
+                    in_g->C[j] = -1;
+                }
+            }
+        }
+    }
+
+    int r_index = 0;
+    //int m = 0;
+    for (int i = 0; i < in_g->n; i++) {
+            out_g->R[i] = r_index;
+            for (int j = in_g->R[i]; j < in_g->R[i + 1]; j++) {
+                if (in_g->C[j] != -1) {
+                    out_g->C[r_index] = in_g->C[j];
+                    out_g->F[r_index++] = i;
+                }
+            }
+    }
+    out_g->R[in_g->n] = r_index;
+
+#ifdef DEBUG
+    std::cout << "Preprocessing...\n";
+    std::cout<< "Deleted " << in_g->m - out_g->m << " vertices.\n";
+    std::cout <<"1 degree vertices percent: " << (in_g->m - out_g->m) * 100/(float)in_g->n<< "%\n" << std::endl;
+#endif
 }
 
 

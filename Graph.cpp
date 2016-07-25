@@ -10,7 +10,7 @@
 
 Graph::Graph() {
 	// TODO Auto-generated constructor stub
-	R = C = F = nullptr;
+	R = C = F = weitht = bc = nullptr;
 	n = m = -1;
 
 }

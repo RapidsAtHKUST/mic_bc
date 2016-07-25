@@ -27,7 +27,7 @@ class GraphUtility {
 public:
 	GraphUtility(Graph *g);
 	void print_adjacency_list();
-	void print_BC_scores(const std::vector<float> bc, char *outfile);
+	void print_BC_scores(std::vector<float> bc, char *outfile);
 	void print_CSR();
 	void print_R();
 	void print_high_degree_vertices();
