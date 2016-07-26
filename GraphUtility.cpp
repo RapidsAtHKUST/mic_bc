@@ -394,19 +394,27 @@ void GraphUtility::reduce_1_degree_vertices(Graph *in_g, Graph *out_g) {
     out_g->n = in_g->n;
     out_g->m = in_g->m;
 
+    int *R = new int[in_g->n + 1];
+    int *F = new int[in_g->m * 2];
+    int *C = new int[in_g->m * 2];
+
+    std::memcpy(R, in_g->R, sizeof(int) * (in_g->n + 1));
+    std::memcpy(F, in_g->F, sizeof(int) * (in_g->m * 2));
+    std::memcpy(C, in_g->C, sizeof(int) * (in_g->m * 2));
+
     std::memset(out_g->bc, 0, in_g->n * sizeof(int));
     std::fill_n(out_g->weitht, in_g->n, 1);
 
     for (int i = 0; i < in_g->n; i++) {
-        if (in_g->R[i + 1] - in_g->R[i] == 1) {
-            int v = in_g->C[in_g->R[i]];
+        if (R[i + 1] - R[i] == 1) {
+            int v = C[R[i]];
             out_g->weitht[v]++;
             //in_g->R[i] = in_g->n;
             out_g->m --;
-            in_g->C[in_g->R[i]] = -1;
-            for (int j = in_g->R[v]; j < in_g->R[v + 1]; ++j) {
-                if (in_g->C[j] == i) {
-                    in_g->C[j] = -1;
+            C[R[i]] = -1;
+            for (int j = R[v]; j < R[v + 1]; ++j) {
+                if (C[j] == i) {
+                    C[j] = -1;
                 }
             }
         }
@@ -416,9 +424,9 @@ void GraphUtility::reduce_1_degree_vertices(Graph *in_g, Graph *out_g) {
     //int m = 0;
     for (int i = 0; i < in_g->n; i++) {
             out_g->R[i] = r_index;
-            for (int j = in_g->R[i]; j < in_g->R[i + 1]; j++) {
-                if (in_g->C[j] != -1) {
-                    out_g->C[r_index] = in_g->C[j];
+            for (int j = R[i]; j < R[i + 1]; j++) {
+                if (C[j] != -1) {
+                    out_g->C[r_index] = C[j];
                     out_g->F[r_index++] = i;
                 }
             }
