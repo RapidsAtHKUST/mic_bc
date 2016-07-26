@@ -26,7 +26,9 @@ public:
      * Processing Units - GPGPU-6 (pp. 76–85). New York, New York, USA: ACM Press.
      * http://doi.org/10.1145/2458523.2458531
      */
-    int *weitht;
+    int *weight;
+    int *which_components;
+    int *components_sizes;
     int *bc;
 
     virtual ~Graph();

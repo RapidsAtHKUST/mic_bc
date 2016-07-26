@@ -172,7 +172,7 @@ __ONMIC__ void MIC_Level_Parallel(int n, int m, int* __NOLP__ R,
 }
 
 __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
-		const int* __NOLP__ F, const int* __NOLP__ C,
+		const int* __NOLP__ F, const int* __NOLP__ C, const int* weight,
 		float* __NOLP__ result_mic, const int num_cores, bool allow_edge) {
 
 #define THOLD 0.5
@@ -333,15 +333,25 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 			}
 		}
 
-		depth = d[S[S_len - 1]] - 1;
+		depth = d[S[S_len - 1]];
 		if (start_point < SAMPLES) {
 			dia_sample[start_point] = depth + 1;
 		}
 //#pragma omp atomic
 //		edge_count_main = edge_count_main + edge_count;
-
+//#ifdef DEBUG
+//        for(int i = 0 ; i < n; i ++){
+//           // delta[i] = weight[i];
+//
+//        }
+//        std::cout << "root: " << start_point +1<< " sigma:\n";
+//        for(int i= 0; i < n; i++){
+//            std::cout << i + 1 << ": " << sigma[i] << "\n";
+//        }
+//        std::cout << std::endl;
+//#endif
 		while (depth > 0) {
-			if (allow_edge && edge_traversal
+			if (0 && allow_edge && edge_traversal
 					&& successors_count[depth] > THOLD * m) {
 				for (int kk = 0; kk < 2 * m; kk++) {
 					int w = F[kk];
@@ -363,7 +373,11 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 					for (int z = R[w]; z < R[w + 1]; z++) {
 						int v = C[z];
 						if (d[v] == (d[w] + 1)) {
-							dsw += (sw / (float) sigma[v]) * (1.0f + delta[v]);
+#ifdef REDUCE_ONE_DEG
+							dsw += (sw / (float) sigma[v]) * (1.0f + delta[v] + weight[v]);
+#else
+                            dsw += (sw / (float) sigma[v]) * (1.0f + delta[v]);
+#endif
 						}
 					}
 					delta[w] = dsw;
@@ -373,8 +387,19 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 		}
 
 		for (int kk = 0; kk < n; kk++) {
-			result_mic[thread_id * n + kk] += delta[kk];
+#ifdef REDUCE_ONE_DEG
+			result_mic[thread_id * n + kk] += delta[kk] * (weight[start_point] + 1);// * weight[start_point];
+#else
+            result_mic[thread_id * n + kk] += delta[kk];
+#endif
 		}
+//#ifdef DEBUG
+//        std::cout << "delta:\n";
+//        for(int k = 0; k < n; k++){
+//            std::cout << k + 1 <<": " << delta[k] << "\n";
+//        }
+//        std::cout << std::endl;
+//#endif
 
 		if (start_point == SAMPLES) {
 			std::sort(dia_sample, dia_sample + SAMPLES, std::less<int>());

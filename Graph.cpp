@@ -10,7 +10,7 @@
 
 Graph::Graph() {
 	// TODO Auto-generated constructor stub
-	R = C = F = weitht = bc = nullptr;
+	R = C = F = weight = bc = components_sizes = which_components = nullptr;
 	n = m = -1;
 
 }

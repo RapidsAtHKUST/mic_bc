@@ -79,6 +79,7 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores) {
 	int *R;
 	int *F;
 	int *C;
+    int *weight;
 	float *result_cpu;
 	std::vector<float> result(g.n, 0);
 	int n = g.n;
@@ -87,16 +88,20 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores) {
 	R = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
 	F = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
 	C = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
+    weight = (int *) _mm_malloc(sizeof(int) * n, 64);
 	result_cpu = (float *) _mm_malloc(sizeof(float) * n * num_cores, 64);
 
 	std::memcpy(R, g.R, sizeof(int) * (n + 1));
 	std::memcpy(F, g.F, sizeof(int) * (m * 2));
 	std::memcpy(C, g.C, sizeof(int) * (m * 2));
+#ifdef REDUCE_ONE_DEG
+    std::memcpy(weight, g.weight, sizeof(int) *n);
+#endif
 
 	std::memset(result_cpu, 0, sizeof(float) * n * num_cores);
 
 	//MIC_Level_Parallel(n, m, R, F, C, result_cpu, num_cores);
-	MIC_Opt_BC(n, m, R, F, C, result_cpu, num_cores, false);
+	MIC_Opt_BC(n, m, R, F, C, weight, result_cpu, num_cores, false);
 	//MIC_Node_Parallel(n, m, g.R, g.F, g.C, result_cpu, num_cores);
 
 	for (int i = 0; i < num_cores; i++) {
@@ -104,6 +109,11 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores) {
 			result[j] += result_cpu[i * n + j];
 		}
 	}
+#ifdef REDUCE_ONE_DEG
+    for(int i = 0; i < n; i++){
+        result[i] += g.bc[i];
+    }
+#endif
 	for (int i = 0; i < n; i++)
 		result[i] = (result[i] / 2.0f);
 

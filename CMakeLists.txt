@@ -10,8 +10,8 @@ if(Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIRS})
 endif()
 
-add_compile_options(-std=c++11 -fopenmp -O3)
-add_definitions(-DDEBUG)
+add_compile_options(-std=c++11 -fopenmp -O3 -g)
+add_definitions(-DDEBUG -DREDUCE_ONE_DEG)
 
 include_directories("${PROJECT_BINARY_DIR}")
 file(GLOB SOURCES *.cpp)

@@ -386,11 +386,35 @@ void GraphUtility::verify(Graph g, const std::vector<float> bc_cpu,
 }
 
 void GraphUtility::reduce_1_degree_vertices(Graph *in_g, Graph *out_g) {
-    out_g->weitht = new int[in_g->n];
+    find_components_size(in_g);
+
+    if(out_g->R != nullptr)
+        delete[] out_g->R;
+    if(out_g->F != nullptr)
+        delete[] out_g->F;
+    if(out_g->C != nullptr)
+        delete[] out_g->C;
+
+    if(in_g->weight == nullptr) {
+        out_g->weight = new int[in_g->n];
+        std::fill_n(out_g->weight, in_g->n, 0);
+    }
+    else
+        out_g->weight = in_g->weight;
+
+    if(in_g->bc == nullptr) {
+        out_g->bc = new int[in_g->n];
+        std::memset(out_g->bc, 0, in_g->n * sizeof(int));
+    }
+    else
+        out_g->bc = in_g->bc;
+
     out_g->R = new int[in_g->n + 1];
     out_g->F = new int[in_g->m * 2];
     out_g->C = new int[in_g->m * 2];
-    out_g->bc = new int[in_g->n];
+
+    out_g->components_sizes = in_g->components_sizes;
+    out_g->which_components = in_g->which_components;
     out_g->n = in_g->n;
     out_g->m = in_g->m;
 
@@ -402,13 +426,19 @@ void GraphUtility::reduce_1_degree_vertices(Graph *in_g, Graph *out_g) {
     std::memcpy(F, in_g->F, sizeof(int) * (in_g->m * 2));
     std::memcpy(C, in_g->C, sizeof(int) * (in_g->m * 2));
 
-    std::memset(out_g->bc, 0, in_g->n * sizeof(int));
-    std::fill_n(out_g->weitht, in_g->n, 1);
+
 
     for (int i = 0; i < in_g->n; i++) {
         if (R[i + 1] - R[i] == 1) {
             int v = C[R[i]];
-            out_g->weitht[v]++;
+
+//            out_g->bc[i] += (out_g->weight[i] - 1) *
+//                    (out_g->components_sizes[out_g->which_components[i]] - out_g->weight[i]);
+//            out_g->bc[v] += (out_g->components_sizes[out_g->which_components[i]] - 1 - out_g->weight[i]) *
+//                    (out_g->weight[i]);
+            out_g->weight[v]++;
+            out_g->bc[v] += 2 * (out_g->components_sizes[out_g->which_components[v]] -
+                                out_g->weight[v] - 1);
             //in_g->R[i] = in_g->n;
             out_g->m --;
             C[R[i]] = -1;
@@ -437,11 +467,71 @@ void GraphUtility::reduce_1_degree_vertices(Graph *in_g, Graph *out_g) {
     std::cout << "Preprocessing...\n";
     std::cout<< "Deleted " << in_g->m - out_g->m << " vertices.\n";
     std::cout <<"1 degree vertices percent: " << (in_g->m - out_g->m) * 100/(float)in_g->n<< "%\n" << std::endl;
+//    std::cout << "Weights:\n";
+//    for (int k = 0; k < out_g->n; ++k) {
+//        std::cout<<k << ": " << out_g->weight[k] << "\n";
+//    }
+//    std::cout << "BC:\n";
+//    for (int k = 0; k < out_g->n; ++k) {
+//        std::cout<<k << ": " << out_g->bc[k] << "\n";
+//    }
 #endif
 
     delete[] R;
     delete[] F;
     delete[] C;
+}
+
+void GraphUtility::find_components_size(Graph *g){
+    if(g->which_components != nullptr)
+        return;
+
+    g->which_components = new int[g->n];
+
+    std::vector<int> components_sizes(g->n, 0);
+
+    std::vector<bool> vis(g->n, false);
+
+
+    int total_components = 0;
+
+    for(int i = 0; i < g->n; i++){
+        if(!vis[i]){
+            std::queue<int> Q;
+            Q.push(i);
+            vis[i] = true;
+            components_sizes[total_components] = 1;
+            g->which_components[i] = total_components;
+            while(!Q.empty()){
+                int v = Q.front();
+                Q.pop();
+                for(int j = g->R[v]; j < g->R[v + 1]; j++){
+                    int u = g->C[j];
+                    if(!vis[u]){
+                        vis[u] = true;
+                        Q.push(u);
+                        components_sizes[total_components] ++;
+                        g->which_components[u] = total_components;
+                    }
+                }
+            }
+            total_components++;
+        }
+
+    }
+    g->components_sizes = new int[total_components];
+    for(int i = 0 ; i < total_components; i++){
+        g->components_sizes[i] = components_sizes[i];
+    }
+
+#ifdef DEBUG
+    std::cout<< "Total components: " << total_components << "\n";
+//    std::cout <<"Component sizes:\n";
+//    for(int i = 0 ; i < total_components; i++){
+//        std::cout << i+1 << ": " << components_sizes[i] << "\n";
+//    }
+    std::cout << std::endl;
+#endif
 }
 
 
