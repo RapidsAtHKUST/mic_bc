@@ -438,6 +438,10 @@ void GraphUtility::reduce_1_degree_vertices(Graph *in_g, Graph *out_g) {
     std::cout<< "Deleted " << in_g->m - out_g->m << " vertices.\n";
     std::cout <<"1 degree vertices percent: " << (in_g->m - out_g->m) * 100/(float)in_g->n<< "%\n" << std::endl;
 #endif
+
+    delete[] R;
+    delete[] F;
+    delete[] C;
 }
 
 
