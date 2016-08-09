@@ -211,11 +211,10 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 	}
 
 	int edge_count_main = 0;
-	int thread_id;
-#pragma omp parallel for private(thread_id)
+#pragma omp parallel for
 	for (int ind = 0; ind < n; ind++) {
 
-		thread_id = omp_get_thread_num();
+		int thread_id = omp_get_thread_num();
 		int start_point = ind;
 
 		int* __NOLP__ d = d_a[thread_id];
@@ -227,6 +226,8 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 		int* __NOLP__ S = S_a[thread_id];
 		unsigned long long* __NOLP__ successors_count =
 				succeed_count_a[thread_id];
+
+        std::vector<int> P[n];
 
 		S[0] = start_point;
 		endpoints[0] = 0;
@@ -252,147 +253,188 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 		d[start_point] = 0;
 		sigma[start_point] = 1;
 
-		for (int r = R[start_point]; r < R[start_point + 1]; r++) {
-			int w = C[r];
-			if (d[w] == 0xefefefef) {
-				d[w] = 1;
-				Q2[Q2_len] = w;
-				Q2_len++;
-			}
-			if (d[w] == (d[start_point] + 1)) {
-				sigma[w]++;
-			}
-		}
+        std::queue<int> Que;
+        std::stack<int> Sta;
+        Que.push(start_point);
+        while(!Que.empty()){
+            int v = Que.front(); Que.pop();
+            Sta.push(v);
+            for(int r = R[v]; r < R[v + 1]; r++){
+                int w = C[r];
+                if(d[w] == 0xefefefef){
+                    Que.push(w);
+                    d[w] = d[v] + 1;
+                }
+                if(d[w] == d[v] + 1){
+                    sigma[w] += sigma[v];
+                    P[w].push_back(v);
+                }
+            }
+        }
+        for(int i = 0 ; i < n ; i ++)
+            delta[i] = weight[i] -1;
+        while(!Sta.empty()){
+            int w = Sta.top();Sta.pop();
+            if (w == start_point) continue;
+            for(auto v = P[w].begin(); v != P[w].end(); v++){
+                delta[*v] += (sigma[*v] * (1 + delta[w])) / sigma[w];
+            }
 
-		if (Q2_len == 0) {
-			calc_done = true;
-		} else {
-			for (int kk = 0; kk < Q2_len; kk++) {
-				int v = Q2[kk];
-				Q[kk] = v;
-				successors_count[depth + 1] += R[v + 1] - R[v];
-				S[kk + S_len] = v;
-			}
-			endpoints[endpoints_len] = endpoints[endpoints_len - 1] + Q2_len;
-			endpoints_len++;
-			Q_len = Q2_len;
-			S_len += Q2_len;
-			Q2_len = 0;
-			depth++;
-		}
+            result_mic[thread_id * n + w] += delta[w] * weight[start_point];
+        }
 
-		while (!calc_done) {
-			if (allow_edge && edge_traversal
-					&& successors_count[depth] > THOLD * m) {
-				for (int k = 0; k < 2 * m; k++) {
-					int v = F[k];
-					if (d[v] == depth) {
-						int w = C[k];
-						if (d[w] == 0xefefefef) {
-							d[w] = d[v] + 1;
-							Q2[Q2_len] = w;
-							Q2_len++;
-						}
-						if (d[w] == (d[v] + 1)) {
-							sigma[w] += sigma[v];
-						}
-					}
-				}
-			} else {
-				for (int k = 0; k < Q_len; k++) {
-					int v = Q[k];
-					for (int r = R[v]; r < R[v + 1]; r++) {
-						int w = C[r];
-						if (d[w] == 0xefefefef) {
-							d[w] = d[v] + 1;
-							Q2[Q2_len] = w;
-							Q2_len++;
-						}
-						if (d[w] == (d[v] + 1)) {
-							sigma[w] += sigma[v];
-						}
-					}
-				}
-			}
-			if (Q2_len == 0) {
-				break;
-			} else {
-				for (int kk = 0; kk < Q2_len; kk++) {
-					int v = Q2[kk];
-					Q[kk] = v;
-					successors_count[depth + 1] += R[v + 1] - R[v];
-					S[kk + S_len] = v;
-				}
-				endpoints[endpoints_len] = endpoints[endpoints_len - 1]
-						+ Q2_len;
-				endpoints_len++;
-				Q_len = Q2_len;
-				S_len += Q2_len;
-				Q2_len = 0;
-				depth++;
-			}
-		}
-
-		depth = d[S[S_len - 1]];
-		if (start_point < SAMPLES) {
-			dia_sample[start_point] = depth + 1;
-		}
-//#pragma omp atomic
-//		edge_count_main = edge_count_main + edge_count;
-//#ifdef DEBUG
+//		for (int r = R[start_point]; r < R[start_point + 1]; r++) {
+//			int w = C[r];
+//			if (d[w] == 0xefefefef) {
+//				d[w] = 1;
+//				Q2[Q2_len] = w;
+//				Q2_len++;
+//			}
+//			if (d[w] == (d[start_point] + 1)) {
+//				sigma[w]++;
+//                P[w].push_back(start_point);
+//			}
+//		}
+//
+//		if (Q2_len == 0) {
+//			calc_done = true;
+//		} else {
+//			for (int kk = 0; kk < Q2_len; kk++) {
+//				int v = Q2[kk];
+//				Q[kk] = v;
+//				successors_count[depth + 1] += R[v + 1] - R[v];
+//				S[kk + S_len] = v;
+//			}
+//			endpoints[endpoints_len] = endpoints[endpoints_len - 1] + Q2_len;
+//			endpoints_len++;
+//			Q_len = Q2_len;
+//			S_len += Q2_len;
+//			Q2_len = 0;
+//			depth++;
+//		}
+//
+//		while (!calc_done) {
+//			if (0 && allow_edge && edge_traversal
+//					&& successors_count[depth] > THOLD * m) {
+//				for (int k = 0; k < 2 * m; k++) {
+//					int v = F[k];
+//					if (d[v] == depth) {
+//						int w = C[k];
+//						if (d[w] == 0xefefefef) {
+//							d[w] = d[v] + 1;
+//							Q2[Q2_len] = w;
+//							Q2_len++;
+//						}
+//						if (d[w] == (d[v] + 1)) {
+//							sigma[w] += sigma[v];
+//						}
+//					}
+//				}
+//			} else {
+//				for (int k = 0; k < Q_len; k++) {
+//					int v = Q[k];
+//					for (int r = R[v]; r < R[v + 1]; r++) {
+//						int w = C[r];
+//						if (d[w] == 0xefefefef) {
+//							d[w] = d[v] + 1;
+//							Q2[Q2_len] = w;
+//							Q2_len++;
+//						}
+//						if (d[w] == (d[v] + 1)) {
+//							sigma[w] += sigma[v];
+//                            P[w].push_back(v);
+//						}
+//					}
+//				}
+//			}
+//			if (Q2_len == 0) {
+//				break;
+//			} else {
+//				for (int kk = 0; kk < Q2_len; kk++) {
+//					int v = Q2[kk];
+//					Q[kk] = v;
+//					successors_count[depth + 1] += R[v + 1] - R[v];
+//					S[kk + S_len] = v;
+//				}
+//				endpoints[endpoints_len] = endpoints[endpoints_len - 1]
+//						+ Q2_len;
+//				endpoints_len++;
+//				Q_len = Q2_len;
+//				S_len += Q2_len;
+//				Q2_len = 0;
+//				depth++;
+//			}
+//		}
+//
+//		depth = d[S[S_len - 1]];
+//		if (start_point < SAMPLES) {
+//			dia_sample[start_point] = depth + 1;
+//		}
+////#pragma omp atomic
+////		edge_count_main = edge_count_main + edge_count;
+////#ifdef DEBUG
 //        for(int i = 0 ; i < n; i ++){
-//           // delta[i] = weight[i];
+//            delta[i] = 1.0/sigma[i];
 //
 //        }
-//        std::cout << "root: " << start_point +1<< " sigma:\n";
-//        for(int i= 0; i < n; i++){
-//            std::cout << i + 1 << ": " << sigma[i] << "\n";
+////        std::cout << "root: " << start_point +1<< " sigma:\n";
+////        for(int i= 0; i < n; i++){
+////            std::cout << i + 1 << ": " << sigma[i] << "\n";
+////        }
+////        std::cout << std::endl;
+////#endif
+////		while (depth > 0) {
+////			if (0 && allow_edge && edge_traversal
+////					&& successors_count[depth] > THOLD * m) {
+////				for (int kk = 0; kk < 2 * m; kk++) {
+////					int w = F[kk];
+////					if (d[w] == depth) {
+////						int v = C[kk];
+////						if (d[v] == (d[w] + 1)) {
+////							float change = (sigma[w] / (float) sigma[v])
+////									* (1.0f + delta[v]);
+////							delta[w] += change;
+////						}
+////					}
+////				}
+////			} else {
+////				for (int kk = endpoints[depth]; kk < endpoints[depth + 1];
+////						kk++) {
+////					int w = S[kk];
+////					float dsw = 0;
+////					float sw = (float) sigma[w];
+////					for (int z = R[w]; z < R[w + 1]; z++) {
+////						int v = C[z];
+////						if (d[v] == (d[w] + 1)) {
+////#ifdef REDUCE_ONE_DEG
+////							dsw += (sw / (float) sigma[v]) * (1.0f + delta[v] + weight[v]);
+////#else
+////                            dsw += (sw / (float) sigma[v]) * (1.0 f + delta[v]);
+////#endif
+////						}
+////					}
+////					delta[w] = dsw;
+////				}
+////			}
+////			depth--;
+////		}
+//        while(depth > -1){
+//            for(int w = endpoints[depth]; w < endpoints[depth + 1]; w++){
+//                for(int idx = 0; idx < P[w].size(); idx++){
+//                    int v = P[w][idx];
+//                    delta[v] += delta[w];
+//                }
+//            }
+//            depth--;
 //        }
-//        std::cout << std::endl;
-//#endif
-		while (depth > 0) {
-			if (0 && allow_edge && edge_traversal
-					&& successors_count[depth] > THOLD * m) {
-				for (int kk = 0; kk < 2 * m; kk++) {
-					int w = F[kk];
-					if (d[w] == depth) {
-						int v = C[kk];
-						if (d[v] == (d[w] + 1)) {
-							float change = (sigma[w] / (float) sigma[v])
-									* (1.0f + delta[v]);
-							delta[w] += change;
-						}
-					}
-				}
-			} else {
-				for (int kk = endpoints[depth]; kk < endpoints[depth + 1];
-						kk++) {
-					int w = S[kk];
-					float dsw = 0;
-					float sw = (float) sigma[w];
-					for (int z = R[w]; z < R[w + 1]; z++) {
-						int v = C[z];
-						if (d[v] == (d[w] + 1)) {
-#ifdef REDUCE_ONE_DEG
-							dsw += (sw / (float) sigma[v]) * (1.0f + delta[v] + weight[v]);
-#else
-                            dsw += (sw / (float) sigma[v]) * (1.0f + delta[v]);
-#endif
-						}
-					}
-					delta[w] = dsw;
-				}
-			}
-			depth--;
-		}
 
-		for (int kk = 0; kk < n; kk++) {
-#ifdef REDUCE_ONE_DEG
-			result_mic[thread_id * n + kk] += delta[kk] * (weight[start_point] + 1);// * weight[start_point];
-#else
-            result_mic[thread_id * n + kk] += delta[kk];
-#endif
-		}
+//		for (int kk = 0; kk < n && kk != start_point; kk++){
+//#ifdef REDUCE_ONE_DEG
+//			result_mic[thread_id * n + kk] += delta[kk] * sigma[kk] -1;// * weight[start_point];
+//#else
+//            result_mic[thread_id * n + kk] += delta[kk];
+//#endif
+//		}
 //#ifdef DEBUG
 //        std::cout << "delta:\n";
 //        for(int k = 0; k < n; k++){
@@ -401,16 +443,16 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int* __NOLP__ R,
 //        std::cout << std::endl;
 //#endif
 
-		if (start_point == SAMPLES) {
-			std::sort(dia_sample, dia_sample + SAMPLES, std::less<int>());
-		}
-		int log2n = 0;
-		int tempn = n;
-		while (tempn >>= 1)
-			++log2n;
-		if (dia_sample[SAMPLES / 2] < 4 * log2n) {
-			edge_traversal = true;
-		}
+//		if (start_point == SAMPLES) {
+//			std::sort(dia_sample, dia_sample + SAMPLES, std::less<int>());
+//		}
+//		int log2n = 0;
+//		int tempn = n;
+//		while (tempn >>= 1)
+//			++log2n;
+//		if (dia_sample[SAMPLES / 2] < 4 * log2n) {
+//			edge_traversal = true;
+//		}
 	}
 	//printf("%d\n",edge_count_main);
 }

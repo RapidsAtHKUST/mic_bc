@@ -116,22 +116,22 @@ int main(int argc, char *argv[]) {
 			g_util.verify(g, bc_cpu_parallel, bc_cpu);
 			//g_util.verify(g, bc_cpu, bc_cpu_parallel);
             //g_util.verify(g, bc_mic, bc_cpu_parallel);
-           // g_util.print_BC_scores(bc_cpu, nullptr);
-           // std::cout << std::endl;
-           // g_util.print_BC_scores(bc_mic, nullptr);
+           g_util.print_BC_scores(bc_cpu, nullptr);
+            std::cout << std::endl;
+            g_util.print_BC_scores(bc_cpu_parallel, nullptr);
 
 			std::cout.precision(9);
 			std::cout << "CPU time: " << cpu_t.ms_wall / 1000.0 << " s"
 					<< std::endl;
-			//std::ofstream outcpu("out-cpu.txt");
-			//std::ofstream outmic("out-mic.txt");
+			std::ofstream outcpu("out-cpu.txt");
+			std::ofstream outmic("out-mic.txt");
 
-			//for (int i = 0; i < g.n; i++) {
-			//	outcpu << bc_cpu[i] << "\n";
-			//	outmic << bc_mic[i] << "\n";
-			//}
-			//outcpu.close();
-			//outmic.close();
+			for (int i = 0; i < g.n; i++) {
+				outcpu << "bc[" << i << "]: "<< bc_cpu[i] << "\n";
+				outmic << "bc[" << i << "]: "<<bc_cpu_parallel[i] << "\n";
+			}
+			outcpu.close();
+			outmic.close();
 		}
 
 	} catch (std::exception &e) {
