@@ -40,7 +40,7 @@ public:
 	void parse_metis(char *file);
 	void parse_edgelist(char *file);
 
-	void reduce_1_degree_vertices(Graph *in_g, Graph *out_g);
+	bool reduce_1_degree_vertices(Graph *in_g, Graph *out_g);
     void find_components_size(Graph *g);
 	void verify(Graph g,const std::vector<float> bc_cpu, const std::vector<float> bc_mic);
 

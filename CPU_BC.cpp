@@ -94,12 +94,10 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores) {
 	std::memcpy(R, g.R, sizeof(int) * (n + 1));
 	std::memcpy(F, g.F, sizeof(int) * (m * 2));
 	std::memcpy(C, g.C, sizeof(int) * (m * 2));
-#ifdef REDUCE_ONE_DEG
     if(g.weight != nullptr)
         std::memcpy(weight, g.weight, sizeof(int) *n);
     else
         std::fill_n(weight, n, 1);
-#endif
 
 	std::memset(result_cpu, 0, sizeof(float) * n * num_cores);
 
@@ -112,12 +110,11 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores) {
 			result[j] += result_cpu[i * n + j];
 		}
 	}
-#ifdef REDUCE_ONE_DEG
+
     if(g.bc != nullptr)
     for(int i = 0; i < n; i++){
         result[i] += g.bc[i];
     }
-#endif
 	for (int i = 0; i < n; i++)
 		result[i] = (result[i] / 2.0f);
 
