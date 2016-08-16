@@ -48,6 +48,7 @@ public:
 	int n,m;
 	Graph *g;
 
+
 	virtual ~MIC_BC();
 
 };

@@ -410,44 +410,55 @@ bool GraphUtility::reduce_1_degree_vertices(Graph *in_g, Graph *out_g) {
     std::memcpy(F, in_g->F, sizeof(int) * (in_g->m * 2));
     std::memcpy(C, in_g->C, sizeof(int) * (in_g->m * 2));
 
+    std::set<std::pair<int, int> > deleted;
 
     bool finish = true;
-    if (in_g->m > 1) {
-        for (int i = 0; i < in_g->n; i++) {
-            if (R[i + 1] - R[i] == 1) {
-                finish = false;
-                int v = C[R[i]];
+#ifdef DEBUG
+    std::cout<<"\tCSR INDEX ARRAY:\n\t\t";
+    for(int i = 0 ; i < in_g->n; i ++){
+        std::cout << R[i] << '\t';
+    }
+    std::cout << std::endl;
+#endif
 
-                out_g->bc[i] += (out_g->weight[i] - 1) *
-                                (out_g->components_sizes[out_g->which_components[i]] - out_g->weight[i]);
-                out_g->bc[v] += (out_g->components_sizes[out_g->which_components[i]] - 1 - out_g->weight[i]) *
-                                (out_g->weight[i]);
-                out_g->weight[v] += out_g->weight[i];
+    for (int i = 0; i < in_g->n; i++) {
+        if (R[i + 1] - R[i] == 1) {
+            int v = C[R[i]];
+            if(deleted.find(std::make_pair(i, v)) != deleted.end() ||
+                    deleted.find(std::make_pair(v, i)) != deleted.end())
+                continue;
+            finish = false;
+
+            out_g->bc[i] += (out_g->weight[i] - 1) *
+                            (out_g->components_sizes[out_g->which_components[i]] - out_g->weight[i]);
+            out_g->bc[v] += (out_g->components_sizes[out_g->which_components[i]] - 1 - out_g->weight[i]) *
+                            (out_g->weight[i]);
+            out_g->weight[v] += out_g->weight[i];
 //            out_g->bc[v] += 2 * (out_g->components_sizes[out_g->which_components[v]] -
 //                                out_g->weight[v] - 1);
-                //in_g->R[i] = in_g->n;
-                out_g->m--;
-                C[R[i]] = -1;
-                for (int j = R[v]; j < R[v + 1]; ++j) {
-                    if (C[j] == i) {
-                        C[j] = -1;
-                    }
-                }
-            }
+
+            out_g->m--;
+            //un-directed edge
+            deleted.insert(std::make_pair(i, v));
+            deleted.insert(std::make_pair(v, i));
         }
     }
+
     int r_index = 0;
     //int m = 0;
     for (int i = 0; i < in_g->n; i++) {
         out_g->R[i] = r_index;
         for (int j = R[i]; j < R[i + 1]; j++) {
-            if (C[j] != -1) {
+            if (deleted.find(std::make_pair(i, C[j])) == deleted.end() &&
+                deleted.find(std::make_pair(C[j], i)) == deleted.end()) {
                 out_g->C[r_index] = C[j];
                 out_g->F[r_index++] = i;
             }
         }
     }
+    //std::cout << r_index << std::endl;
     out_g->R[in_g->n] = r_index;
+
 
     delete[] R;
     delete[] F;

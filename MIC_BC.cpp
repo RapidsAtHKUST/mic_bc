@@ -8,29 +8,25 @@
 
 #include "MIC_BC.h"
 
-#define DIAMETER_SAMPLES 512
-
 #pragma offload_attribute (push,target(mic))
-namespace MIC {
-    int *R;
-    int *F;
-    int *C;
-    int *weight;
-    float *result_mic;
-
-}
+int *R;
+int *F;
+int *C;
+int *weight;
+float *result_mic;
 #pragma offload_attribute (pop)
-
-using namespace MIC;
 
 MIC_BC::MIC_BC(Graph *g, int num_cores) {
 
     current_node = 0;
     n = g->n;
     m = g->m;
+    //in case g->m==0, _mm_malloc cannot allocate zero or nagetive length
+    if (m <=0)
+        m = 1;
     this->num_cores = num_cores;
     this->g = g;
-    //std::cout << n << " " << m << " " << this->num_cores << std::endl;
+    result.resize(n, 0);
 
     R = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
     F = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
@@ -42,14 +38,14 @@ MIC_BC::MIC_BC(Graph *g, int num_cores) {
         std::fill_n(weight, n, 1);
     }
 
-    result_mic = (float *) _mm_malloc(sizeof(float) * n * num_cores, 64);
+    result_mic = (float *) _mm_malloc(sizeof(float) * n * num_cores + 100, 64);
 
     std::memcpy(R, g->R, sizeof(int) * (n + 1));
     std::memcpy(F, g->F, sizeof(int) * (m * 2));
     std::memcpy(C, g->C, sizeof(int) * (m * 2));
 
 
-    std::memset(result_mic, 0, sizeof(float) * n * num_cores);
+    std::memset(result_mic, 0, sizeof(float) * n * num_cores + 100);
     transfer_to_mic();
 
 }
@@ -61,7 +57,7 @@ void MIC_BC::transfer_to_mic() {
 			in(F[0:m*2] : ALLOC)\
 			in(C[0:m*2] : ALLOC)\
             in(weight[0:n]: ALLOC)\
-			in(result_mic[0:n*num_cores] : ALLOC)
+			in(result_mic[0:n*num_cores ] : ALLOC)
         {
         }
 
@@ -74,7 +70,7 @@ std::vector<float> MIC_BC::node_parallel() {
 	nocopy(R[0:n+1] : FREE)\
 	nocopy(F[0:m*2] : FREE)\
 	nocopy(C[0:m*2] : FREE)\
-	out(result_mic[0:n*num_cores] : FREE)
+	inout(result_mic[0:n*num_cores] : FREE)
     {
         MIC_Coarse_Parallel(n, m, R, F, C, result_mic, num_cores);
 
@@ -85,7 +81,7 @@ std::vector<float> MIC_BC::node_parallel() {
         }
 
     for (int i = 0; i < n; i++)
-        result.push_back(result_mic[i] / 2.0f);
+        result[i] = result_mic[i] / 2.0f;
 
     return result;
 
@@ -104,25 +100,18 @@ std::vector<float> MIC_BC::opt_bc() {
             MIC_Opt_BC(n, m, R, F, C, weight, result_mic, num_cores, true);
         }
 
-#ifdef KAHAN
-    std::vector<float> c(n, 0);
-#endif
-    for (int i = 1; i < num_cores; i++) {
-        for (int j = 0; j < n; j++) {
-#ifdef KAHAN
-            KahanSum(&result_mic[j],&c[j],result_mic[i * n + j]);
-#else
-            result_mic[j] += result_mic[i * n + j];
-#endif
-
+    for(int i = 0 ; i < num_cores; i++){
+        for(int j = 0 ; j < n; j ++){
+            result[j] += result_mic[i * n + j ];
         }
     }
+
     if(g->bc != nullptr)
         for(int i = 0; i < n; i++){
             result[i] += g->bc[i];
         }
     for (int i = 0; i < n; i++)
-        result.push_back(result_mic[i] / 2.0f);
+        result[i] = result[i] / 2.0f;
 
     return result;
 }
@@ -156,6 +145,10 @@ int MIC_BC::get_range(int *start, int *end, int want) {
 }
 
 MIC_BC::~MIC_BC() {
+    _mm_free(R);
+    _mm_free(F);
+    _mm_free(C);
+    _mm_free(weight);
 // TODO Auto-generated destructor stub
 }
 

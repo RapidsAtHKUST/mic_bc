@@ -15,6 +15,7 @@
 #include <map>
 #include <string>
 #include <bitset>
+#include <vector>
 using std::string;
 
 #define NAIVE_CPU 1

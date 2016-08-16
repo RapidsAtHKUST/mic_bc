@@ -18,7 +18,7 @@
 
 int main(int argc, char *argv[]) {
 
-    try {
+   // try {
         std::ios::sync_with_stdio(false);
 
         ParseArgs args;
@@ -27,6 +27,7 @@ int main(int argc, char *argv[]) {
 
         Graph g;
         GraphUtility g_util(&g);
+        int left_vertices = 0;
 
         g_util.parse(args.InputFile);
 
@@ -37,9 +38,8 @@ int main(int argc, char *argv[]) {
         std::cout << "\tMax Number of threads on HOST: " << args.num_cores_cpu
                   << std::endl;
         std::cout<<"\nINPUT DATA INFO:\n";
-        std::cout << "\tNumber of nodes: " << g.n << std::endl;
+        std::cout << "\tNumber of vertices: " << g.n << std::endl;
         std::cout << "\tNumber of edges: " << g.m << "\n" << std::endl;
-
         Graph g_out;
         if ((args.run_flags.to_ulong() & PAR_CPU_1_DEG) | (args.run_flags.to_ulong() & MIC_OFF_1_DEG)) {
             std::cout << "REDUCING 1 DEGREE VERTICES:\n";
@@ -47,8 +47,13 @@ int main(int argc, char *argv[]) {
             while (!finish) {
                 finish = g_util.reduce_1_degree_vertices(&g_out, &g_out);
             }
-            std::cout << "\tDeleted " << g.m - g_out.m << " vertices.\n";
-            std::cout << "\t1 degree vertices percent: " << (g.m - g_out.m) * 100 / (float) g.n << "%\n"
+            for(int i = 0 ; i < g.n; i ++){
+                if(g_out.R[i + 1] - g_out.R[i] > 0){
+                    left_vertices++;
+                }
+            }
+            std::cout << "\tDeleted " << g.n - left_vertices << " vertices\n";
+            std::cout << "\t1 degree vertices percent: " << (g.n - left_vertices) * 100 / (float) g.n << "%\n"
                       << std::endl;
         }
 
@@ -61,57 +66,70 @@ int main(int argc, char *argv[]) {
 
         if (args.run_flags.to_ulong() & VERIFY) {
             bc_cpu = BC_cpu(g, source_vertices);
-            bc_cpu_parallel = BC_cpu_parallel(g_out, args.num_cores_cpu);
-            std::cout << "Verifying:" << std::endl;
-
-            g_util.verify(g, bc_cpu_parallel, bc_cpu);
-            std::cout << std::endl;
         }
-        MIC_BC *mic_bc, *mic_bc_o;
-
-        if(args.run_flags.to_ulong() & MIC_OFF)
-            mic_bc = new MIC_BC(&g, args.num_cores_mic);
-        if(args.run_flags.to_ulong() & MIC_OFF_1_DEG)
-            mic_bc_o = new MIC_BC(&g_out, args.num_cores_mic);
 
         for (int i = 0; i < 16; i++) {
-            if (args.run_flags[i] && (args.mode_name.find(0x01 << i) != args.mode_name.end())) {
+            if (args.run_flags[i]) {
+                std::ios::fmtflags f;
+                f = std::cout.flags();
+                std::cout.setf(std::ios::showbase | std::ios::hex);
+                std::cout << "MODE: " << std::hex << (0x1<<i) << " TASK: " << args.mode_name[0x1 << i]<<std::endl;
+                std::cout.flags(f);
                 TimeCounter _t;
-                _t.start_wall_time();
+
                 //std::cout << "start running" << std::endl;
                 switch (0x1 << i) {
                     case NAIVE_CPU:
+                        _t.start_wall_time();
                         result = BC_cpu(g, source_vertices);
+                        _t.stop_wall_time();
                         break;
                     case PAR_CPU:
+                        _t.start_wall_time();
                         result = BC_cpu_parallel(g, args.num_cores_cpu);
+                        _t.stop_wall_time();
                         break;
                     case PAR_CPU_1_DEG:
+                        _t.start_wall_time();
                         result = BC_cpu_parallel(g_out, args.num_cores_cpu);
+                        _t.stop_wall_time();
                         break;
                     case MIC_OFF:
+                        MIC_BC *mic_bc = new MIC_BC(&g, args.num_cores_mic);
+                        _t.start_wall_time();
                         result = mic_bc->opt_bc();
+                        _t.stop_wall_time();
                         break;
                     case MIC_OFF_1_DEG:
+                        MIC_BC *mic_bc_o = new MIC_BC(&g_out, args.num_cores_mic);
+                        _t.start_wall_time();
                         result = mic_bc_o->opt_bc();
+                        _t.stop_wall_time();
+                        break;
+                    case VERIFY:
+                        _t.ms_wall = 0;
+                        std::cout << "\tThe results will be verified after every task\n";
                         break;
                     default:
-                        std::cout << "DD NOTHING AND EXIT";
+                        std::cout << "DD NOTHING AND EXIT\n";
                 }
-                _t.stop_wall_time();
-                std::cout << "MODE: 0x" << std::hex << (0x1<<i) << " TASK: " << args.mode_name[0x1 << i]<<'\n';
+
                 std::cout << "\ttime: "
                           << _t.ms_wall / 1000.0 << " s" << std::endl;
                 std::cout << "\tMTEPS: "
                           << ((long long) g.m * g.n / 1000000)
                              / (_t.ms_wall / 1000.0) << "\n"
                           << std::endl;
+                if(args.run_flags.to_ulong() & VERIFY) {
+                    g_util.verify(g, result, bc_cpu);
+                    std::cout << std::endl;
+                }
             }
         }
 
-    } catch (std::exception &e) {
-        std::cout << e.what() << std::endl;
-    }
+//    } catch (std::exception &e) {
+//        std::cout << e.what() << std::endl;
+//    }
     return 0;
 }
 

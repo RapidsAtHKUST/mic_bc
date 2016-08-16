@@ -7,9 +7,10 @@
  */
 
 #include "ParseArgs.h"
-#include <cstdlib>
+#include "MIC_COMMON.h"
 #include <offload.h>
 #include <omp.h>
+#include <iostream>
 
 ParseArgs::ParseArgs() {
     // TODO Auto-generated constructor stub
@@ -18,8 +19,8 @@ ParseArgs::ParseArgs() {
     verify = cpu_parallel = reduce_1_deg = false;
     printResult = false;
     num_devices = _Offload_number_of_devices();
-    num_cores_mic = omp_get_max_threads_target(TARGET_MIC, 0);
     num_cores_cpu = omp_get_max_threads();
+    num_cores_mic = MAX_MIC_CORE;
     run_flags.reset();
     mode_name[NAIVE_CPU] = "Naive CPU";
     mode_name[PAR_CPU] = "Parallel CPU";
@@ -61,15 +62,25 @@ void ParseArgs::Parser(int argc, char *argv[]) {
                 in_o = std::strtol(in_str.c_str(), &t, 0);
                 run_flags = std::bitset<16>(in_o);
                 //std::cout << "running mode: " << std::bitset<16>(run_flags) << std::endl;
+                for(int i = 0; i < 16; i ++){
+                    if(run_flags[i] && (mode_name.find(0x1 << i) != mode_name.end()))
+                        run_flags[i] = 1;
+                    else
+                        run_flags[i] = 0;
+                }
                 std::cout << "RUNNING IN " << run_flags.count() << " MODE(S):\n";
+                std::ios::fmtflags f;
+                f = std::cout.flags();
+                std::cout.setf(std::ios::showbase | std::ios::hex);
                 for (int i = 0; i < 16; i++) {
-                    if (run_flags[i] && (mode_name.find(0x1<<i) != mode_name.end())) {
-                        std::cout <<'\t'<< "mode: 0x" << std::hex << (0x1<<i) << " task: " << mode_name[(0x01 << i)] << '\n';
+                    if (run_flags[i]) {
+                        std::cout << '\t' << "mode: " << std::hex << (0x1 << i) << " task: " << mode_name[(0x01 << i)]
+                                  << '\n';
                     }
                 }
-
-                break;
+                std::cout.flags(f);
             }
+                break;
             case 'h':
             case '?':
             default:

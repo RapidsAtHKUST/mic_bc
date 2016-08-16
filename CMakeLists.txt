@@ -11,7 +11,7 @@ if(Boost_FOUND)
 endif()
 
 add_compile_options(-std=c++11 -fopenmp -O3 -g)
-add_definitions(-DDEBUG -DREDUCE_ONE_DEG)
+add_definitions()
 
 include_directories("${PROJECT_BINARY_DIR}")
 file(GLOB SOURCES *.cpp)
