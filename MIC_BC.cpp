@@ -13,6 +13,7 @@ int *R;
 int *F;
 int *C;
 int *weight;
+int *which_comp;
 float *result_mic;
 #pragma offload_attribute (pop)
 
@@ -32,10 +33,13 @@ MIC_BC::MIC_BC(Graph *g, int num_cores) {
     F = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
     C = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
     weight = (int *) _mm_malloc(sizeof(int) * n, 64);
+    which_comp = (int *) _mm_malloc(sizeof(int) * n, 64);
     if (g->weight != nullptr) {
         std::memcpy(weight, g->weight, sizeof(int) * n);
+        std::memcpy(which_comp, g->which_components, sizeof(int) * n);
     }else{
         std::fill_n(weight, n, 1);
+        std::fill_n(which_comp, n, 0);
     }
 
     result_mic = (float *) _mm_malloc(sizeof(float) * n * num_cores + 100, 64);
@@ -57,6 +61,7 @@ void MIC_BC::transfer_to_mic() {
 			in(F[0:m*2] : ALLOC)\
 			in(C[0:m*2] : ALLOC)\
             in(weight[0:n]: ALLOC)\
+            in(which_comp[0:n]: ALLOC)\
 			in(result_mic[0:n*num_cores ] : ALLOC)
         {
         }
@@ -70,7 +75,7 @@ std::vector<float> MIC_BC::node_parallel() {
 	nocopy(R[0:n+1] : FREE)\
 	nocopy(F[0:m*2] : FREE)\
 	nocopy(C[0:m*2] : FREE)\
-	inout(result_mic[0:n*num_cores] : FREE)
+	out(result_mic[0:n*num_cores] : FREE)
     {
         MIC_Coarse_Parallel(n, m, R, F, C, result_mic, num_cores);
 
@@ -95,9 +100,10 @@ std::vector<float> MIC_BC::opt_bc() {
 		nocopy(F[0:m*2] : FREE)\
 		nocopy(C[0:m*2] : FREE)\
         nocopy(weight[0:n]: FREE)\
+        nocopy(which_comp[0:n]: FREE)\
 		out(result_mic[0:n*num_cores] : FREE)
         {
-            MIC_Opt_BC(n, m, R, F, C, weight, result_mic, num_cores, true);
+            MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, true);
         }
 
     for(int i = 0 ; i < num_cores; i++){

@@ -80,6 +80,7 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores) {
 	int *F;
 	int *C;
     int *weight;
+    int *which_comp;
 	float *result_cpu;
 	std::vector<float> result(g.n, 0);
 	int n = g.n;
@@ -89,20 +90,25 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores) {
 	F = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
 	C = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
     weight = (int *) _mm_malloc(sizeof(int) * n, 64);
-	result_cpu = (float *) _mm_malloc(sizeof(float) * n * num_cores, 64);
+    which_comp = (int *) _mm_malloc(sizeof(int) * n, 64);
+    result_cpu = (float *)_mm_malloc(sizeof(int) *n * num_cores, 64);
 
 	std::memcpy(R, g.R, sizeof(int) * (n + 1));
 	std::memcpy(F, g.F, sizeof(int) * (m * 2));
 	std::memcpy(C, g.C, sizeof(int) * (m * 2));
-    if(g.weight != nullptr)
+    if(g.weight != nullptr){
         std::memcpy(weight, g.weight, sizeof(int) *n);
-    else
+        std::memcpy(which_comp, g.which_components, sizeof(int)*n);
+    }
+    else {
         std::fill_n(weight, n, 1);
+        std::fill_n(which_comp, n, 0);
+    }
 
 	std::memset(result_cpu, 0, sizeof(float) * n * num_cores);
 
 	//MIC_Level_Parallel(n, m, R, F, C, result_cpu, num_cores);
-	MIC_Opt_BC(n, m, R, F, C, weight, result_cpu, num_cores, false);
+	MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_cpu, num_cores, false);
 	//MIC_Node_Parallel(n, m, g.R, g.F, g.C, result_cpu, num_cores);
 
 	for (int i = 0; i < num_cores; i++) {

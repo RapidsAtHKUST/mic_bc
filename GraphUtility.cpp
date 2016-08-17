@@ -386,7 +386,7 @@ void GraphUtility::verify(Graph g, const std::vector<float> bc_cpu,
 }
 
 bool GraphUtility::reduce_1_degree_vertices(Graph *in_g, Graph *out_g) {
-    find_components_size(in_g);
+    out_g-> total_comp= find_components_size(in_g);
 
     if (out_g->which_components == nullptr) {
         out_g->R = new int[in_g->n + 1];
@@ -436,7 +436,7 @@ bool GraphUtility::reduce_1_degree_vertices(Graph *in_g, Graph *out_g) {
             out_g->weight[v] += out_g->weight[i];
 //            out_g->bc[v] += 2 * (out_g->components_sizes[out_g->which_components[v]] -
 //                                out_g->weight[v] - 1);
-
+            out_g->which_components[i] = out_g->total_comp++;
             out_g->m--;
             //un-directed edge
             deleted.insert(std::make_pair(i, v));
@@ -466,9 +466,9 @@ bool GraphUtility::reduce_1_degree_vertices(Graph *in_g, Graph *out_g) {
     return finish;
 }
 
-void GraphUtility::find_components_size(Graph *g) {
+int GraphUtility::find_components_size(Graph *g) {
     if (g->which_components != nullptr)
-        return;
+        return g->total_comp;
 
     g->which_components = new int[g->n];
 
@@ -508,14 +508,8 @@ void GraphUtility::find_components_size(Graph *g) {
         g->components_sizes[i] = components_sizes[i];
     }
 
-#ifdef DEBUG
-    std::cout << "\tTotal components: " << total_components;
-//    std::cout <<"Component sizes:\n";
-//    for(int i = 0 ; i < total_components; i++){
-//        std::cout << i+1 << ": " << components_sizes[i] << "\n";
-//    }
-    std::cout << std::endl;
-#endif
+    std::cout << "\tTotal components: " << total_components << "\n";
+    return total_components;
 }
 
 

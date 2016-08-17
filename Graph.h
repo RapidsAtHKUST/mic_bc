@@ -29,6 +29,7 @@ public:
     int *weight;
     int *which_components;
     int *components_sizes;
+    int total_comp;
     int *bc;
 
     virtual ~Graph();

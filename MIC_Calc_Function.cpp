@@ -172,7 +172,7 @@ __ONMIC__ void MIC_Level_Parallel(int n, int m, int *__NOLP__ R,
 }
 
 __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
-                          const int *F, const int *C, const int *weight,
+                          const int *F, const int *C, const int *weight, const int *which_comp,
                           float *result_mic, const int num_cores, bool allow_edge) {
 
 #define THOLD 0.5
@@ -400,9 +400,11 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                 //result_mic[thread_id * n + w] += delta[w] * weight[start_point];
             }
             for(int kk = 0; kk < start_point; kk ++){
+                if(which_comp[start_point] == which_comp[kk])
                 result_mic[thread_id * n + kk] += delta[kk] * weight[start_point];
             }
             for (int kk = start_point+1; kk < n; kk++) {
+                if(which_comp[start_point] == which_comp[kk])
                 result_mic[thread_id * n + kk] += delta[kk] * weight[start_point];
             }
 //		while (depth > 0) {
