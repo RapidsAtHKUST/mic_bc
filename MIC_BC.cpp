@@ -17,16 +17,17 @@ int *which_comp;
 float *result_mic;
 #pragma offload_attribute (pop)
 
-MIC_BC::MIC_BC(Graph *g, int num_cores) {
+MIC_BC::MIC_BC(Graph *g, int num_cores, int mode) {
 
     current_node = 0;
     n = g->n;
     m = g->m;
     //in case g->m==0, _mm_malloc cannot allocate zero or nagetive length
-    if (m <=0)
+    if (m <= 0)
         m = 1;
     this->num_cores = num_cores;
     this->g = g;
+    this->mode = mode;
     result.resize(n, 0);
 
     R = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
@@ -34,10 +35,10 @@ MIC_BC::MIC_BC(Graph *g, int num_cores) {
     C = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
     weight = (int *) _mm_malloc(sizeof(int) * n, 64);
     which_comp = (int *) _mm_malloc(sizeof(int) * n, 64);
-    if (g->weight != nullptr) {
+    if (mode == 1) {
         std::memcpy(weight, g->weight, sizeof(int) * n);
         std::memcpy(which_comp, g->which_components, sizeof(int) * n);
-    }else{
+    } else {
         std::fill_n(weight, n, 1);
         std::fill_n(which_comp, n, 0);
     }
@@ -63,8 +64,8 @@ void MIC_BC::transfer_to_mic() {
             in(weight[0:n]: ALLOC)\
             in(which_comp[0:n]: ALLOC)\
 			in(result_mic[0:n*num_cores ] : ALLOC)
-        {
-        }
+    {
+    }
 
 
 }
@@ -94,6 +95,7 @@ std::vector<float> MIC_BC::node_parallel() {
 
 std::vector<float> MIC_BC::opt_bc() {
 
+    if (mode == 2) {
 
 #pragma offload target(mic:0)\
 		nocopy(R[0:n+1] : FREE)\
@@ -105,15 +107,27 @@ std::vector<float> MIC_BC::opt_bc() {
         {
             MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, true);
         }
-
-    for(int i = 0 ; i < num_cores; i++){
-        for(int j = 0 ; j < n; j ++){
-            result[j] += result_mic[i * n + j ];
+    } else {
+#pragma offload target(mic:0)\
+		nocopy(R[0:n+1] : FREE)\
+		nocopy(F[0:m*2] : FREE)\
+		nocopy(C[0:m*2] : FREE)\
+        nocopy(weight[0:n]: FREE)\
+        nocopy(which_comp[0:n]: FREE)\
+		out(result_mic[0:n*num_cores] : FREE)
+        {
+            MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, false);
         }
     }
 
-    if(g->bc != nullptr)
-        for(int i = 0; i < n; i++){
+    for (int i = 0; i < num_cores; i++) {
+        for (int j = 0; j < n; j++) {
+            result[j] += result_mic[i * n + j];
+        }
+    }
+
+    if (mode == 1)
+        for (int i = 0; i < n; i++) {
             result[i] += g->bc[i];
         }
     for (int i = 0; i < n; i++)

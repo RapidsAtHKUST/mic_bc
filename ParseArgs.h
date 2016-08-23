@@ -23,6 +23,7 @@ using std::string;
 #define PAR_CPU_1_DEG 4
 #define MIC_OFF 8
 #define MIC_OFF_1_DEG 16
+#define MIC_OFF_E_V_TRVL 32
 #define VERIFY 128
 
 class ParseArgs {
@@ -35,12 +36,14 @@ public:
 	bool printResult;
 	bool reduce_1_deg;
     /*run_flags is a bitmap for selecting the running mode:
-     * 0000 0000 0000 0000 -> run nothing
-     * 0000 0000 0000 0001 -> run naive cpu version
-     * 0000 0000 0000 0010 -> run parallel cpu version
-     * 0000 0000 0000 0100 -> run parallel cpu version with 1-deg vertices reduction
-     * 0000 0000 0000 1000 -> run mic offload version
-     * 0000 0000 0001 0000 -> run mic offload version with 1-deg vertices reduction
+     * 0000 0000 -> run nothing
+     * 0000 0001 -> run naive cpu version
+     * 0000 0010 -> run parallel cpu version
+     * 0000 0100 -> run parallel cpu version with 1-deg vertices reduction
+     * 0000 1000 -> run mic offload version
+     * 0001 0000 -> run mic offload version with 1-deg vertices reduction
+     * 0010 0000 -> run mic offload with both edge and vertices traversal method enabled
+     * 1000 0000 -> verify the results
      *
      */
     std::bitset<16> run_flags;

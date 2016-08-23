@@ -105,15 +105,21 @@ int main(int argc, char *argv[]) {
                     //g_util.print_BC_scores(result, nullptr);
                     break;
                 case MIC_OFF:
-                    MIC_BC *mic_bc = new MIC_BC(&g, args.num_cores_mic);
+                    MIC_BC *mic_bc = new MIC_BC(&g, args.num_cores_mic, 0);
                     _t.start_wall_time();
                     result = mic_bc->opt_bc();
                     _t.stop_wall_time();
                     break;
                 case MIC_OFF_1_DEG:
-                    MIC_BC *mic_bc_o = new MIC_BC(&g_out, args.num_cores_mic);
+                    MIC_BC *mic_bc_o = new MIC_BC(&g_out, args.num_cores_mic, 1);
                     _t.start_wall_time();
                     result = mic_bc_o->opt_bc();
+                    _t.stop_wall_time();
+                    break;
+                case MIC_OFF_E_V_TRVL:
+                    MIC_BC *mic_bc_ev = new MIC_BC(&g, args.num_cores_mic, 2);
+                    _t.start_wall_time();
+                    result = mic_bc_ev->opt_bc();
                     _t.stop_wall_time();
                     break;
                 case VERIFY:

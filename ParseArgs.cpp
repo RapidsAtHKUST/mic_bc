@@ -27,6 +27,7 @@ ParseArgs::ParseArgs() {
     mode_name[PAR_CPU_1_DEG] = "Parallel CPU with 1-deg vertices reduction";
     mode_name[MIC_OFF] = "Xeon Phi Offload";
     mode_name[MIC_OFF_1_DEG] = "Xeon Phi Offload with 1-deg vertices reduction";
+    mode_name[MIC_OFF_E_V_TRVL] = "Xeon Phi Offload with edge&vertices traversal enabled";
     mode_name[VERIFY] = "Verify the results";
 }
 

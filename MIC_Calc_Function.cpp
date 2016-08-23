@@ -228,8 +228,6 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             unsigned long long *successors_count =
                     succeed_count_a[thread_id];
 
-            std::vector<int> P[n];
-
             S[0] = start_point;
             endpoints[0] = 0;
             endpoints[1] = 1;
@@ -253,45 +251,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
 
             d[start_point] = 0;
             sigma[start_point] = 1;
-//#####
-//            std::queue<int> Que;
-//            std::stack<int> Sta;
-//            Que.push(start_point);
-//            while (!Que.empty()) {
-//                int v = Que.front();
-//                Que.pop();
-//                Sta.push(v);
-//                for (int r = R[v]; r < R[v + 1]; r++) {
-//                    int w = C[r];
-//                    if (d[w] == 0xefefefef) {
-//                        Que.push(w);
-//                        d[w] = d[v] + 1;
-//                    }
-//                    if (d[w] == d[v] + 1) {
-//                        sigma[w] += sigma[v];
-//                        P[w].push_back(v);
-//                    }
-//                }
-//            }
-//            for (int i = 0; i < n; i++)
-//                delta[i] = weight[i] - 1;
-//            std::vector<int> stack;
-//            while(!Sta.empty()){
-//                stack.push_back(Sta.top());
-//                Sta.pop();
-//            }
-//            for(auto s = stack.begin(); s<stack.end(); s ++) {
-//                int w = *s;
-//                //Sta.pop();
-//                if (w == start_point) continue;
-//                for (auto v = P[w].rbegin(); v != P[w].rend(); v++) {
-//                    delta[*v] += (sigma[*v] * (1 + delta[w])) / sigma[w];
-//                }
-//
-//                result_mic[thread_id * n + w] += delta[w] * weight[start_point];
-//            }
-//            continue;
-//####
+
             for (int r = R[start_point]; r < R[start_point + 1]; r++) {
                 int w = C[r];
                 if (d[w] == 0xefefefef) {
@@ -301,7 +261,6 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                 }
                 if (d[w] == (d[start_point] + 1)) {
                     sigma[w]++;
-                    //P[w].push_back(start_point);
                 }
             }
 
@@ -323,7 +282,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             }
 
             while (!calc_done) {
-                if (0 && allow_edge && edge_traversal
+                if (allow_edge && edge_traversal
                     && successors_count[depth] > THOLD * m) {
                     for (int k = 0; k < 2 * m; k++) {
                         int v = F[k];
@@ -351,7 +310,6 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                             }
                             if (d[w] == (d[v] + 1)) {
                                 sigma[w] += sigma[v];
-                               // P[w].push_back(v);
                             }
                         }
                     }
@@ -393,19 +351,14 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                         delta[v] += (sigma[v] * (1 + delta[w])) / sigma[w];
                     }
                 }
-//                for (auto v = P[w].rbegin(); v != P[w].rend(); v++) {
-//                    delta[*v] += (sigma[*v] * (1 + delta[w])) / sigma[w];
-//                }
-
-                //result_mic[thread_id * n + w] += delta[w] * weight[start_point];
             }
-            for(int kk = 0; kk < start_point; kk ++){
-                if(which_comp[start_point] == which_comp[kk])
-                result_mic[thread_id * n + kk] += delta[kk] * weight[start_point];
+            for (int kk = 0; kk < start_point; kk++) {
+                if (which_comp[start_point] == which_comp[kk])
+                    result_mic[thread_id * n + kk] += delta[kk] * weight[start_point];
             }
-            for (int kk = start_point+1; kk < n; kk++) {
-                if(which_comp[start_point] == which_comp[kk])
-                result_mic[thread_id * n + kk] += delta[kk] * weight[start_point];
+            for (int kk = start_point + 1; kk < n; kk++) {
+                if (which_comp[start_point] == which_comp[kk])
+                    result_mic[thread_id * n + kk] += delta[kk] * weight[start_point];
             }
 //		while (depth > 0) {
 //			if (0 && allow_edge && edge_traversal
@@ -459,17 +412,19 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
 //        }
 //        std::cout << std::endl;
 //#endif
+            if (allow_edge) {
 
-//		if (start_point == SAMPLES) {
-//			std::sort(dia_sample, dia_sample + SAMPLES, std::less<int>());
-//		}
-//		int log2n = 0;
-//		int tempn = n;
-//		while (tempn >>= 1)
-//			++log2n;
-//		if (dia_sample[SAMPLES / 2] < 4 * log2n) {
-//			edge_traversal = true;
-//		}
+                if (start_point == SAMPLES) {
+                    std::sort(dia_sample, dia_sample + SAMPLES, std::less<int>());
+                }
+                int log2n = 0;
+                int tempn = n;
+                while (tempn >>= 1)
+                    ++log2n;
+                if (dia_sample[SAMPLES / 2] < 4 * log2n) {
+                    edge_traversal = true;
+                }
+            }
         }
         //printf("%d\n",edge_count_main);
     }
