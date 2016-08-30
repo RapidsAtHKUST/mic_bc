@@ -10,6 +10,14 @@
 #define MIC_COMMON_H_
 
 
+#define NAIVE_CPU 1
+#define PAR_CPU 2
+#define PAR_CPU_1_DEG 4
+#define MIC_OFF 8
+#define MIC_OFF_1_DEG 16
+#define MIC_OFF_E_V_TRVL 32
+#define VERIFY 128
+
 #define MAX_MIC_CORE 240
 
 #define ALLOC alloc_if(1) free_if(0)

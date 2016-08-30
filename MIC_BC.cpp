@@ -17,7 +17,7 @@ int *which_comp;
 float *result_mic;
 #pragma offload_attribute (pop)
 
-MIC_BC::MIC_BC(Graph *g, int num_cores, int mode) {
+MIC_BC::MIC_BC(Graph *g, int num_cores, uint32_t mode) {
 
     current_node = 0;
     n = g->n;
@@ -35,7 +35,7 @@ MIC_BC::MIC_BC(Graph *g, int num_cores, int mode) {
     C = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
     weight = (int *) _mm_malloc(sizeof(int) * n, 64);
     which_comp = (int *) _mm_malloc(sizeof(int) * n, 64);
-    if (mode == 1) {
+    if (mode & MIC_OFF_1_DEG) {
         std::memcpy(weight, g->weight, sizeof(int) * n);
         std::memcpy(which_comp, g->which_components, sizeof(int) * n);
     } else {
@@ -95,8 +95,6 @@ std::vector<float> MIC_BC::node_parallel() {
 
 std::vector<float> MIC_BC::opt_bc() {
 
-    if (mode == 2) {
-
 #pragma offload target(mic:0)\
 		nocopy(R[0:n+1] : FREE)\
 		nocopy(F[0:m*2] : FREE)\
@@ -104,21 +102,10 @@ std::vector<float> MIC_BC::opt_bc() {
         nocopy(weight[0:n]: FREE)\
         nocopy(which_comp[0:n]: FREE)\
 		out(result_mic[0:n*num_cores] : FREE)
-        {
-            MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, true);
-        }
-    } else {
-#pragma offload target(mic:0)\
-		nocopy(R[0:n+1] : FREE)\
-		nocopy(F[0:m*2] : FREE)\
-		nocopy(C[0:m*2] : FREE)\
-        nocopy(weight[0:n]: FREE)\
-        nocopy(which_comp[0:n]: FREE)\
-		out(result_mic[0:n*num_cores] : FREE)
-        {
-            MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, false);
-        }
+    {
+        MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, mode);
     }
+
 
     for (int i = 0; i < num_cores; i++) {
         for (int j = 0; j < n; j++) {
@@ -126,7 +113,7 @@ std::vector<float> MIC_BC::opt_bc() {
         }
     }
 
-    if (mode == 1)
+    if (mode & MIC_OFF_1_DEG)
         for (int i = 0; i < n; i++) {
             result[i] += g->bc[i];
         }

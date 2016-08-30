@@ -41,8 +41,10 @@ int main(int argc, char *argv[]) {
     std::cout << "\tNumber of vertices: " << g.n << std::endl;
     std::cout << "\tNumber of edges: " << g.m << "\n" << std::endl;
     Graph g_out;
+    TimeCounter _t;
     if ((args.run_flags.to_ulong() & PAR_CPU_1_DEG) | (args.run_flags.to_ulong() & MIC_OFF_1_DEG)) {
         std::cout << "REDUCING 1 DEGREE VERTICES:\n";
+        _t.start_wall_time();
         bool finish = g_util.reduce_1_degree_vertices(&g, &g_out);
         while (!finish) {
             finish = g_util.reduce_1_degree_vertices(&g_out, &g_out);
@@ -52,9 +54,10 @@ int main(int argc, char *argv[]) {
                 left_vertices++;
             }
         }
+        _t.stop_wall_time();
         std::cout << "\tDeleted " << g.n - left_vertices << " vertices\n";
-        std::cout << "\t1 degree vertices percent: " << (g.n - left_vertices) * 100 / (float) g.n << "%\n"
-                  << std::endl;
+        std::cout << "\t1 degree vertices percent: " << (g.n - left_vertices) * 100 / (float) g.n << "%\n";
+        std::cout << "\tREDUCING 1 DEG VERTICES TIME: " << _t.ms_wall / 1000.0 << " s\n" << std::endl;
 
 #ifdef DEBUG
         std::cout << "\tPre-processing BC values:\n\t";
@@ -77,6 +80,9 @@ int main(int argc, char *argv[]) {
         //g_util.print_BC_scores(bc_cpu, nullptr);
     }
 
+
+    bool mic_need_warm_up = true;
+
     for (int i = 0; i < 16; i++) {
         if (args.run_flags[i]) {
             std::ios::fmtflags f;
@@ -84,7 +90,6 @@ int main(int argc, char *argv[]) {
             std::cout.setf(std::ios::showbase | std::ios::hex);
             std::cout << "MODE: " << std::hex << (0x1 << i) << " TASK: " << args.mode_name[0x1 << i] << std::endl;
             std::cout.flags(f);
-            TimeCounter _t;
 
             //std::cout << "start running" << std::endl;
             switch (0x1 << i) {
@@ -105,19 +110,37 @@ int main(int argc, char *argv[]) {
                     //g_util.print_BC_scores(result, nullptr);
                     break;
                 case MIC_OFF:
-                    MIC_BC *mic_bc = new MIC_BC(&g, args.num_cores_mic, 0);
+                    if(mic_need_warm_up){
+                        MIC_BC *warm_up = new MIC_BC(&g, args.num_cores_mic, 0x00);
+                        result = warm_up->opt_bc();
+                        mic_need_warm_up = false;
+                        std::cout << "\tWARM UP" << std::endl;
+                    }
+                    MIC_BC *mic_bc = new MIC_BC(&g, args.num_cores_mic, MIC_OFF);
                     _t.start_wall_time();
                     result = mic_bc->opt_bc();
                     _t.stop_wall_time();
                     break;
                 case MIC_OFF_1_DEG:
-                    MIC_BC *mic_bc_o = new MIC_BC(&g_out, args.num_cores_mic, 1);
+                    if(mic_need_warm_up){
+                        MIC_BC *warm_up = new MIC_BC(&g, args.num_cores_mic, 0x00);
+                        result = warm_up->opt_bc();
+                        mic_need_warm_up = false;
+                        std::cout << "\tWARM UP" << std::endl;
+                    }
+                    MIC_BC *mic_bc_o = new MIC_BC(&g_out, args.num_cores_mic, MIC_OFF_1_DEG);
                     _t.start_wall_time();
                     result = mic_bc_o->opt_bc();
                     _t.stop_wall_time();
                     break;
                 case MIC_OFF_E_V_TRVL:
-                    MIC_BC *mic_bc_ev = new MIC_BC(&g, args.num_cores_mic, 2);
+                    if(mic_need_warm_up){
+                        MIC_BC *warm_up = new MIC_BC(&g, args.num_cores_mic, 0x00);
+                        result = warm_up->opt_bc();
+                        mic_need_warm_up = false;
+                        std::cout << "\tWARM UP" << std::endl;
+                    }
+                    MIC_BC *mic_bc_ev = new MIC_BC(&g, args.num_cores_mic, MIC_OFF_E_V_TRVL);
                     _t.start_wall_time();
                     result = mic_bc_ev->opt_bc();
                     _t.stop_wall_time();

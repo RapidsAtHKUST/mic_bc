@@ -173,7 +173,7 @@ __ONMIC__ void MIC_Level_Parallel(int n, int m, int *__NOLP__ R,
 
 __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                           const int *F, const int *C, const int *weight, const int *which_comp,
-                          float *result_mic, const int num_cores, bool allow_edge) {
+                          float *result_mic, const int num_cores, uint32_t mode) {
 
 #define THOLD 0.5
 #define SAMPLES 256
@@ -282,7 +282,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             }
 
             while (!calc_done) {
-                if (allow_edge && edge_traversal
+                if ((mode & MIC_OFF_1_DEG) && edge_traversal
                     && successors_count[depth] > THOLD * m) {
                     for (int k = 0; k < 2 * m; k++) {
                         int v = F[k];
@@ -338,6 +338,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                 dia_sample[start_point] = depth + 1;
             }
 
+            if(mode & MIC_OFF_1_DEG)
             for (int i = 0; i < n; i++) {
                 delta[i] = weight[i] - 1;
 
@@ -412,7 +413,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
 //        }
 //        std::cout << std::endl;
 //#endif
-            if (allow_edge) {
+            if ((mode & MIC_OFF_1_DEG)) {
 
                 if (start_point == SAMPLES) {
                     std::sort(dia_sample, dia_sample + SAMPLES, std::less<int>());

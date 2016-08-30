@@ -33,7 +33,7 @@
 
 class MIC_BC {
 public:
-	MIC_BC(Graph *g, int num_cores, int mode);
+	MIC_BC(Graph *g, int num_cores, uint32_t mode);
 	std::vector<float> result;
 	void transfer_to_mic();
 	int get_range(int *start, int *end, int want);
