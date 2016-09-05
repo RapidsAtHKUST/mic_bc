@@ -94,7 +94,7 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores, uint32_t mode) {
     std::memcpy(R, g.R, sizeof(int) * (n + 1));
     std::memcpy(F, g.F, sizeof(int) * (m * 2));
     std::memcpy(C, g.C, sizeof(int) * (m * 2));
-    if (mode & PAR_CPU_1_DEG) {
+    if ((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG)) {
         std::memcpy(weight, g.weight, sizeof(int) * n);
         std::memcpy(which_comp, g.which_components, sizeof(int) * n);
     } else {
@@ -132,7 +132,7 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores, uint32_t mode) {
         }
     }
 
-    if (mode & PAR_CPU_1_DEG)
+    if ((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG))
         for (int i = 0; i < n; i++) {
             result[i] += g.bc[i];
         }

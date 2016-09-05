@@ -27,7 +27,11 @@
 #define ALLOC alloc_if(1) free_if(0)
 #define FREE alloc_if(0) free_if(1)
 #define REUSE alloc_if(0) free_if(0)
+#ifndef KNL
 #define __ONMIC__ __attribute__((target(mic)))
+#else
+#define __ONMIC__
+#endif
 //NOLP -> no overlap
 #define __NOLP__ __restrict__
 

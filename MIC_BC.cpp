@@ -8,6 +8,8 @@
 
 #include "MIC_BC.h"
 
+#ifndef KNL
+
 #pragma offload_attribute (push,target(mic))
 
 #include <sys/time.h>
@@ -186,3 +188,4 @@ MIC_BC::~MIC_BC() {
 // TODO Auto-generated destructor stub
 }
 
+#endif /* KNL */

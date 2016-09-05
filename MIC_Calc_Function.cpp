@@ -8,8 +8,9 @@
 
 #include "MIC_Calc_Function.h"
 
+#ifndef KNL
 #pragma offload_attribute(push, target(mic))
-
+#endif
 #include <vector>
 #include <queue>
 #include <stack>
@@ -23,8 +24,9 @@
 #include <cmath>
 #include <algorithm>
 #include <mutex>
-
+#ifndef KNL
 #pragma offload_attribute(pop)
+#endif
 
 __ONMIC__ void MIC_Coarse_Parallel(int n, int m, int *__NOLP__ R,
                                    int *__NOLP__ F, int *__NOLP__ C, float *__NOLP__ result_mic,

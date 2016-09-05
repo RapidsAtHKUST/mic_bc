@@ -16,6 +16,7 @@
 
 #include "MIC_BC.h"
 
+
 int main(int argc, char *argv[]) {
 
     std::ios::sync_with_stdio(false);
@@ -31,11 +32,15 @@ int main(int argc, char *argv[]) {
     g_util.parse(args.InputFile);
 
     std::cout << "\nSYSTEM INFO:\n";
+#ifndef KNL
     std::cout << "\tNumber of MIC: " << args.num_devices << std::endl;
     std::cout << "\tMax Number of threads on MIC[0]: " << args.num_cores_mic
               << std::endl;
     std::cout << "\tMax Number of threads on HOST: " << args.num_cores_cpu
               << std::endl;
+#else
+    std::cout <<"\tNumber of threads on KNL: " << args.num_cores_cpu << std::endl;
+#endif
     std::cout << "\nINPUT DATA INFO:\n";
     std::cout << "\tNumber of vertices: " << g.n << std::endl;
     std::cout << "\tNumber of edges: " << g.m << "\n" << std::endl;
@@ -106,7 +111,11 @@ int main(int argc, char *argv[]) {
             switch (0x1 << bit) {
                 case NAIVE_CPU:
                     _t.start_wall_time();
+#ifdef KNL
                     result = BC_cpu(g, source_vertices);
+#else
+                    result = BC_cpu(g, source_vertices);
+#endif
                     _t.stop_wall_time();
                     break;
                 case PAR_CPU:
@@ -121,22 +130,40 @@ int main(int argc, char *argv[]) {
                     //g_util.print_BC_scores(result, nullptr);
                     break;
                 case MIC_OFF:
+#ifdef KNL
+                    _t.start_wall_time();
+                    result = BC_cpu_parallel(g, args.num_cores_cpu, MIC_OFF);
+                    _t.stop_wall_time();
+#else
                     MIC_BC *mic_bc = new MIC_BC(&g, args.num_cores_mic, MIC_OFF);
                     _t.start_wall_time();
                     result = mic_bc->opt_bc();
                     _t.stop_wall_time();
+#endif
                     break;
                 case MIC_OFF_1_DEG:
+#ifdef KNL
+                    _t.start_wall_time();
+                    result = BC_cpu_parallel(g_out, args.num_cores_cpu, MIC_OFF_1_DEG);
+                    _t.stop_wall_time();
+#else
                     MIC_BC *mic_bc_o = new MIC_BC(&g_out, args.num_cores_mic, MIC_OFF_1_DEG);
                     _t.start_wall_time();
                     result = mic_bc_o->opt_bc();
                     _t.stop_wall_time();
+#endif
                     break;
                 case MIC_OFF_E_V_TRVL:
+#ifdef KNL
+                    _t.start_wall_time();
+                    result = BC_cpu_parallel(g, args.num_cores_cpu, MIC_OFF_E_V_TRVL);
+                    _t.stop_wall_time();
+#else
                     MIC_BC *mic_bc_ev = new MIC_BC(&g, args.num_cores_mic, MIC_OFF_E_V_TRVL);
                     _t.start_wall_time();
                     result = mic_bc_ev->opt_bc();
                     _t.stop_wall_time();
+#endif
                     break;
                 case VERIFY:
                     _t.ms_wall = 0;
