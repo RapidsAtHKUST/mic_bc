@@ -189,6 +189,11 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
     int dia_sample[SAMPLES];
     int edge_traversal = false;
 
+    uint32_t allow_edge = 1;
+    if((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG) || (mode & RUN_ON_CPU)){
+        allow_edge = 0;
+    }
+
 #ifdef __MIC__
     // There are only 16 memory channels
 #pragma omp parallel for num_threads(16)
@@ -211,7 +216,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
     }
 
     int edge_count_main = 0;
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
     for (int ind = 0; ind < n; ind++) {
         if (R[ind + 1] - R[ind] != 0) {
 
@@ -251,6 +256,10 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
 
             d[start_point] = 0;
             sigma[start_point] = 1;
+#ifdef STAGET
+            if(mode & INIT_T)
+                continue;
+#endif
 
             for (int r = R[start_point]; r < R[start_point + 1]; r++) {
                 int w = C[r];
@@ -282,7 +291,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             }
 
             while (!calc_done) {
-                if ((mode & MIC_OFF_1_DEG) && edge_traversal
+                if (allow_edge && edge_traversal
                     && successors_count[depth] > THOLD * m) {
                     for (int k = 0; k < 2 * m; k++) {
                         int v = F[k];
@@ -332,17 +341,20 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                     depth++;
                 }
             }
-
+#ifdef STAGET
+            if(mode & TRAVER_T)
+                continue;
+#endif
             depth = d[S[S_len - 1]];
             if (start_point < SAMPLES) {
                 dia_sample[start_point] = depth + 1;
             }
 
-            if(mode & MIC_OFF_1_DEG)
-            for (int i = 0; i < n; i++) {
-                delta[i] = weight[i] - 1;
+            if (mode & MIC_OFF_1_DEG)
+                for (int i = 0; i < n; i++) {
+                    delta[i] = weight[i] - 1;
 
-            }
+                }
             while (S_len > 1) {
                 int w = S[--S_len];
                 //if (w == start_point) continue;
@@ -413,17 +425,17 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
 //        }
 //        std::cout << std::endl;
 //#endif
-            if ((mode & MIC_OFF_1_DEG)) {
+            if (allow_edge) {
 
                 if (start_point == SAMPLES) {
                     std::sort(dia_sample, dia_sample + SAMPLES, std::less<int>());
-                }
-                int log2n = 0;
-                int tempn = n;
-                while (tempn >>= 1)
-                    ++log2n;
-                if (dia_sample[SAMPLES / 2] < 4 * log2n) {
-                    edge_traversal = true;
+                    int log2n = 0;
+                    int tempn = n;
+                    while (tempn >>= 1)
+                        ++log2n;
+                    if (dia_sample[SAMPLES / 2] < 4 * log2n) {
+                        edge_traversal = true;
+                    }
                 }
             }
         }

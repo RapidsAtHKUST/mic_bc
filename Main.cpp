@@ -18,7 +18,6 @@
 
 int main(int argc, char *argv[]) {
 
-    // try {
     std::ios::sync_with_stdio(false);
 
     ParseArgs args;
@@ -83,16 +82,28 @@ int main(int argc, char *argv[]) {
 
     bool mic_need_warm_up = true;
 
-    for (int i = 0; i < 16; i++) {
-        if (args.run_flags[i]) {
+    /*
+     * WARM UP
+     */
+
+//    std::cout <<"WARM UP" << std::endl;
+//    result = BC_cpu_parallel(g, args.num_cores_cpu, PAR_CPU | RUN_ON_CPU);
+//    MIC_BC *warm_up = new MIC_BC(&g, args.num_cores_mic, 0x00);
+//    result = warm_up->opt_bc();
+//    std::cout << "------------\n" << std::endl;
+
+    for (int j = 0; j < 16; j++) {
+        int bit = j;
+        if (args.run_flags[bit]) {
+            sleep(3);
             std::ios::fmtflags f;
             f = std::cout.flags();
             std::cout.setf(std::ios::showbase | std::ios::hex);
-            std::cout << "MODE: " << std::hex << (0x1 << i) << " TASK: " << args.mode_name[0x1 << i] << std::endl;
+            std::cout << "MODE: " << std::hex << (0x1 << bit) << " TASK: " << args.mode_name[0x1 << bit] << std::endl;
             std::cout.flags(f);
 
             //std::cout << "start running" << std::endl;
-            switch (0x1 << i) {
+            switch (0x1 << bit) {
                 case NAIVE_CPU:
                     _t.start_wall_time();
                     result = BC_cpu(g, source_vertices);
@@ -100,46 +111,28 @@ int main(int argc, char *argv[]) {
                     break;
                 case PAR_CPU:
                     _t.start_wall_time();
-                    result = BC_cpu_parallel(g, args.num_cores_cpu);
+                    result = BC_cpu_parallel(g, args.num_cores_cpu, PAR_CPU | RUN_ON_CPU);
                     _t.stop_wall_time();
                     break;
                 case PAR_CPU_1_DEG:
                     _t.start_wall_time();
-                    result = BC_cpu_parallel(g_out, args.num_cores_cpu);
+                    result = BC_cpu_parallel(g_out, args.num_cores_cpu, PAR_CPU_1_DEG | RUN_ON_CPU);
                     _t.stop_wall_time();
                     //g_util.print_BC_scores(result, nullptr);
                     break;
                 case MIC_OFF:
-                    if(mic_need_warm_up){
-                        MIC_BC *warm_up = new MIC_BC(&g, args.num_cores_mic, 0x00);
-                        result = warm_up->opt_bc();
-                        mic_need_warm_up = false;
-                        std::cout << "\tWARM UP" << std::endl;
-                    }
                     MIC_BC *mic_bc = new MIC_BC(&g, args.num_cores_mic, MIC_OFF);
                     _t.start_wall_time();
                     result = mic_bc->opt_bc();
                     _t.stop_wall_time();
                     break;
                 case MIC_OFF_1_DEG:
-                    if(mic_need_warm_up){
-                        MIC_BC *warm_up = new MIC_BC(&g, args.num_cores_mic, 0x00);
-                        result = warm_up->opt_bc();
-                        mic_need_warm_up = false;
-                        std::cout << "\tWARM UP" << std::endl;
-                    }
                     MIC_BC *mic_bc_o = new MIC_BC(&g_out, args.num_cores_mic, MIC_OFF_1_DEG);
                     _t.start_wall_time();
                     result = mic_bc_o->opt_bc();
                     _t.stop_wall_time();
                     break;
                 case MIC_OFF_E_V_TRVL:
-                    if(mic_need_warm_up){
-                        MIC_BC *warm_up = new MIC_BC(&g, args.num_cores_mic, 0x00);
-                        result = warm_up->opt_bc();
-                        mic_need_warm_up = false;
-                        std::cout << "\tWARM UP" << std::endl;
-                    }
                     MIC_BC *mic_bc_ev = new MIC_BC(&g, args.num_cores_mic, MIC_OFF_E_V_TRVL);
                     _t.start_wall_time();
                     result = mic_bc_ev->opt_bc();
@@ -166,9 +159,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-//    } catch (std::exception &e) {
-//        std::cout << e.what() << std::endl;
-//    }
+
     return 0;
 }
 

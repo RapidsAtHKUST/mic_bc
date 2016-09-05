@@ -18,6 +18,10 @@
 #define MIC_OFF_E_V_TRVL 32
 #define VERIFY 128
 
+#define INIT_T 0x0100
+#define TRAVER_T 0x0200
+#define RUN_ON_CPU 0x8000
+
 #define MAX_MIC_CORE 240
 
 #define ALLOC alloc_if(1) free_if(0)

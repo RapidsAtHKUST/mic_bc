@@ -9,6 +9,9 @@
 #include "MIC_BC.h"
 
 #pragma offload_attribute (push,target(mic))
+
+#include <sys/time.h>
+
 int *R;
 int *F;
 int *C;
@@ -103,9 +106,33 @@ std::vector<float> MIC_BC::opt_bc() {
         nocopy(which_comp[0:n]: FREE)\
 		out(result_mic[0:n*num_cores] : FREE)
     {
-        MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, mode);
-    }
+        timeval start_wall_time_t, end_wall_time_t;
+        float ms_wall;
+#ifdef STAGET
+        gettimeofday(&start_wall_time_t, nullptr);
+        MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, INIT_T | mode);
+        gettimeofday(&end_wall_time_t, nullptr);
+        ms_wall = ((end_wall_time_t.tv_sec - start_wall_time_t.tv_sec) * 1000 * 1000
+                   + end_wall_time_t.tv_usec - start_wall_time_t.tv_usec) / 1000.0;
+        std::cout << "\tinitial time: " << ms_wall / 1000.0 << " s" << std::endl;
 
+        gettimeofday(&start_wall_time_t, nullptr);
+        MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, TRAVER_T | mode);
+        gettimeofday(&end_wall_time_t, nullptr);
+        ms_wall = ((end_wall_time_t.tv_sec - start_wall_time_t.tv_sec) * 1000 * 1000
+                   + end_wall_time_t.tv_usec - start_wall_time_t.tv_usec) / 1000.0;
+        std::cout << "\ttraversal time: " << ms_wall / 1000.0 << " s" << std::endl;
+
+        gettimeofday(&start_wall_time_t, nullptr);
+        MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, mode);
+        gettimeofday(&end_wall_time_t, nullptr);
+        ms_wall = ((end_wall_time_t.tv_sec - start_wall_time_t.tv_sec) * 1000 * 1000
+                   + end_wall_time_t.tv_usec - start_wall_time_t.tv_usec) / 1000.0;
+        std::cout << "\ttotal time: " << ms_wall / 1000.0 << " s\n" << std::endl;
+#else
+        MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, mode);
+#endif
+    }
 
     for (int i = 0; i < num_cores; i++) {
         for (int j = 0; j < n; j++) {
