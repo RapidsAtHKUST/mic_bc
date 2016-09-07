@@ -1,17 +1,17 @@
-cmake_minimum_required (VERSION 3.4)
+cmake_minimum_required(VERSION 3.4)
 
-project (mic_bc)
+project(mic_bc)
 
 #set(CMAKE_C_COMPILER "icc")
 #set(CMAKE_CXX_COMPILER "icpc")
 
 find_package(Boost 1.40 COMPONENTS regex)
-if(Boost_FOUND)
+if (Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIRS})
-endif()
+endif ()
 
 
-add_compile_options(-std=c++11 -fopenmp -O3 -g )
+add_compile_options(-std=c++11 -fopenmp -O3 -g)
 add_definitions(-DKNL -DSTAGET)
 
 include_directories("${PROJECT_BINARY_DIR}")

@@ -346,14 +346,16 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                     depth++;
                 }
             }
-#ifdef STAGET
-            if(mode & TRAVER_T)
-                goto DETCT_TYPE_GRAPH;
-#endif
+
             depth = d[S[S_len - 1]];
             if (allow_edge && start_point < SAMPLES) {
                 dia_sample[start_point] = depth + 1;
             }
+
+#ifdef STAGET
+            if(mode & TRAVER_T)
+                goto DETCT_TYPE_GRAPH;
+#endif
 
             if ((mode & MIC_OFF_1_DEG) || (mode & PAR_CPU_1_DEG))
                 for (int i = 0; i < n; i++) {
