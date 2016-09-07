@@ -12,7 +12,7 @@ endif()
 
 
 add_compile_options(-std=c++11 -fopenmp -O3 -g )
-add_definitions(-KNL -DSTAGET)
+add_definitions(-DKNL -DSTAGET)
 
 include_directories("${PROJECT_BINARY_DIR}")
 file(GLOB SOURCES *.cpp)
