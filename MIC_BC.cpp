@@ -109,27 +109,31 @@ std::vector<float> MIC_BC::opt_bc() {
 		out(result_mic[0:n*num_cores] : FREE)
     {
         timeval start_wall_time_t, end_wall_time_t;
-        float ms_wall;
+        float ms_wall, init_t, s1_t, s2_t;
 #ifdef STAGET
         gettimeofday(&start_wall_time_t, nullptr);
         MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, INIT_T | mode);
         gettimeofday(&end_wall_time_t, nullptr);
         ms_wall = ((end_wall_time_t.tv_sec - start_wall_time_t.tv_sec) * 1000 * 1000
                    + end_wall_time_t.tv_usec - start_wall_time_t.tv_usec) / 1000.0;
-        std::cout << "\tinitial time: " << ms_wall / 1000.0 << " s" << std::endl;
+        init_t = ms_wall/1000.0;
+        std::cout << "\tinitial time: " << init_t << " s" << std::endl;
 
         gettimeofday(&start_wall_time_t, nullptr);
         MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, TRAVER_T | mode);
         gettimeofday(&end_wall_time_t, nullptr);
         ms_wall = ((end_wall_time_t.tv_sec - start_wall_time_t.tv_sec) * 1000 * 1000
                    + end_wall_time_t.tv_usec - start_wall_time_t.tv_usec) / 1000.0;
-        std::cout << "\ttraversal time: " << ms_wall / 1000.0 << " s" << std::endl;
+        s1_t = ms_wall/1000.0 - init_t;
+        std::cout << "\ttraversal time: " << s1_t << " s" << std::endl;
 
         gettimeofday(&start_wall_time_t, nullptr);
         MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, mode);
         gettimeofday(&end_wall_time_t, nullptr);
         ms_wall = ((end_wall_time_t.tv_sec - start_wall_time_t.tv_sec) * 1000 * 1000
                    + end_wall_time_t.tv_usec - start_wall_time_t.tv_usec) / 1000.0;
+        s2_t = ms_wall/1000.0 - init_t - s1_t;
+        std::cout << "\taccumulation time: " << s2_t << " s\n" << std::endl;
         std::cout << "\ttotal time: " << ms_wall / 1000.0 << " s\n" << std::endl;
 #else
         MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, mode);

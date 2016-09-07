@@ -178,6 +178,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                           float *result_mic, const int num_cores, uint32_t mode) {
 
 #define THOLD 0.5
+#define CHUNK_SIZE 1
 #define SAMPLES 256
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
     omp_set_num_threads(num_cores);
@@ -191,7 +192,9 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
     int dia_sample[SAMPLES];
     int edge_traversal = false;
 
-    uint32_t allow_edge = 1;
+    uint32_t allow_edge = 0;
+    if(mode & MIC_OFF_E_V_TRVL)
+        allow_edge = 1;
     if((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG) || (mode & RUN_ON_CPU)){
         allow_edge = 0;
     }
@@ -260,7 +263,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             sigma[start_point] = 1;
 #ifdef STAGET
             if(mode & INIT_T)
-                continue;
+                goto DETCT_TYPE_GRAPH;
 #endif
 
             for (int r = R[start_point]; r < R[start_point + 1]; r++) {
@@ -345,14 +348,14 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             }
 #ifdef STAGET
             if(mode & TRAVER_T)
-                continue;
+                goto DETCT_TYPE_GRAPH;
 #endif
             depth = d[S[S_len - 1]];
-            if (start_point < SAMPLES) {
+            if (allow_edge && start_point < SAMPLES) {
                 dia_sample[start_point] = depth + 1;
             }
 
-            if (mode & MIC_OFF_1_DEG)
+            if ((mode & MIC_OFF_1_DEG) || (mode & PAR_CPU_1_DEG))
                 for (int i = 0; i < n; i++) {
                     delta[i] = weight[i] - 1;
 
@@ -427,6 +430,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
 //        }
 //        std::cout << std::endl;
 //#endif
+            DETCT_TYPE_GRAPH:
             if (allow_edge) {
 
                 if (start_point == SAMPLES) {

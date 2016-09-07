@@ -107,19 +107,24 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores, uint32_t mode) {
 
 #ifdef STAGET
     TimeCounter _t;
+    float init_t, s1_t, s2_t;
     _t.start_wall_time();
     MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_cpu, num_cores, INIT_T | mode);
     _t.stop_wall_time();
-    std::cout << "\tinitial time: " << _t.ms_wall / 1000.0 << " s" << std::endl;
+    init_t = _t.ms_wall/1000.0;
+    std::cout << "\tinitial time: " << init_t << " s" << std::endl;
 
     _t.start_wall_time();
     MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_cpu, num_cores, TRAVER_T | mode);
     _t.stop_wall_time();
-    std::cout << "\ttraversal time: " << _t.ms_wall / 1000.0 << " s" << std::endl;
+    s1_t = _t.ms_wall/1000.0 - init_t;
+    std::cout << "\ttraversal time: " << s1_t << " s" << std::endl;
 
     _t.start_wall_time();
     MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_cpu, num_cores, mode);
     _t.stop_wall_time();
+    s2_t = _t.ms_wall/1000.0 - init_t - s1_t;
+    std::cout << "\taccumulation time: " << s2_t << " s\n" << std::endl;
     std::cout << "\ttotal time: " << _t.ms_wall / 1000.0 << " s\n" << std::endl;
 #else
     MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_cpu, num_cores, mode);
