@@ -1,3 +1,7 @@
+# clion build folder
+cmake-build-debug/
+.idea/
+
 # Compiled Object files
 *.slo
 *.lo

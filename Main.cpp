@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) {
                     break;
                 case VERIFY:
                     _t.ms_wall = 0;
-                    std::cout << "\tThe results will be verified after every task\n";
+                    std::cout << "\tThe results will be verified after each task\n";
                     break;
                 default:
                     std::cout << "DD NOTHING AND EXIT\n";
