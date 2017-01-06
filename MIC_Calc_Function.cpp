@@ -198,7 +198,6 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
     if((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG) || (mode & RUN_ON_CPU)){
         allow_edge = 0;
     }
-
 #ifdef __MIC__
     // There are only 16 memory channels
 #pragma omp parallel for num_threads(16)
@@ -296,7 +295,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             }
 
             while (!calc_done) {
-                if (allow_edge && edge_traversal
+                if (edge_traversal
                     && successors_count[depth] > THOLD * 2 *m) {
                     for (int k = 0; k < 2 * m; k++) {
                         int v = F[k];

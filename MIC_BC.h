@@ -24,7 +24,7 @@
 
 class MIC_BC {
 public:
-	MIC_BC(Graph *g, int num_cores, uint32_t mode);
+	MIC_BC(Graph g, int num_cores, uint32_t mode);
 	std::vector<float> result;
 	void transfer_to_mic();
 	int get_range(int *start, int *end, int want);
@@ -35,10 +35,7 @@ public:
 	std::mutex lock;
 	int current_node;
 
-    int mode;
-	int num_cores;
-	int n,m;
-	Graph *g;
+	Graph g;
 
 
 	virtual ~MIC_BC();

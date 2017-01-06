@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
                     result = BC_cpu_parallel(g, args.num_cores_cpu, MIC_OFF);
                     _t.stop_wall_time();
 #else
-                    MIC_BC *mic_bc = new MIC_BC(&g, args.num_cores_mic, MIC_OFF);
+                    MIC_BC *mic_bc = new MIC_BC(g, args.num_cores_mic, MIC_OFF);
                     _t.start_wall_time();
                     result = mic_bc->opt_bc();
                     _t.stop_wall_time();
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
                     result = BC_cpu_parallel(g_out, args.num_cores_cpu, MIC_OFF_1_DEG);
                     _t.stop_wall_time();
 #else
-                    MIC_BC *mic_bc_o = new MIC_BC(&g_out, args.num_cores_mic, MIC_OFF_1_DEG);
+                    MIC_BC *mic_bc_o = new MIC_BC(g_out, args.num_cores_mic, MIC_OFF_1_DEG);
                     _t.start_wall_time();
                     result = mic_bc_o->opt_bc();
                     _t.stop_wall_time();
@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
                     result = BC_cpu_parallel(g, args.num_cores_cpu, MIC_OFF_E_V_TRVL);
                     _t.stop_wall_time();
 #else
-                    MIC_BC *mic_bc_ev = new MIC_BC(&g, args.num_cores_mic, MIC_OFF_E_V_TRVL);
+                    MIC_BC *mic_bc_ev = new MIC_BC(g, args.num_cores_mic, MIC_OFF_E_V_TRVL);
                     _t.start_wall_time();
                     result = mic_bc_ev->opt_bc();
                     _t.stop_wall_time();
