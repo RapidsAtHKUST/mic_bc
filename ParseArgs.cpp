@@ -112,5 +112,5 @@ ParseArgs::~ParseArgs() {
 }
 
 void ParseArgs::PrintUsage() {
-    throw std::runtime_error("Error arguments!");
+    throw std::runtime_error("Error arguments! See readme file.");
 }
