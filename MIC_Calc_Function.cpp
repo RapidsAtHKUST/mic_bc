@@ -175,7 +175,7 @@ __ONMIC__ void MIC_Level_Parallel(int n, int m, int *__NOLP__ R,
 
 __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                           const int *F, const int *C, const int *weight, const int *which_comp,
-                          float *result_mic, const int num_cores, uint32_t mode) {
+                          float *result_mic, const int num_cores, bool is_small_diameter, uint32_t mode) {
 
 #define THOLD 0.5
 #define CHUNK_SIZE 1
@@ -192,11 +192,10 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
     int dia_sample[SAMPLES];
     int edge_traversal = false;
 
-    uint32_t allow_edge = 0;
     if(mode & MIC_OFF_E_V_TRVL)
-        allow_edge = 1;
+        edge_traversal = 1 && is_small_diameter;
     if((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG) || (mode & RUN_ON_CPU)){
-        allow_edge = 0;
+        edge_traversal = false;
     }
 #ifdef __MIC__
     // There are only 16 memory channels
@@ -262,7 +261,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             sigma[start_point] = 1;
 #ifdef STAGET
             if(mode & INIT_T)
-                goto DETCT_TYPE_GRAPH;
+                continue;
 #endif
 
             for (int r = R[start_point]; r < R[start_point + 1]; r++) {
@@ -347,13 +346,10 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             }
 
             depth = d[S[S_len - 1]];
-            if (allow_edge && start_point < SAMPLES) {
-                dia_sample[start_point] = depth + 1;
-            }
 
 #ifdef STAGET
             if(mode & TRAVER_T)
-                goto DETCT_TYPE_GRAPH;
+                continue;
 #endif
 
             if ((mode & MIC_OFF_1_DEG) || (mode & PAR_CPU_1_DEG))
@@ -431,20 +427,6 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
 //        }
 //        std::cout << std::endl;
 //#endif
-            DETCT_TYPE_GRAPH:
-            if (allow_edge) {
-
-                if (start_point == SAMPLES) {
-                    std::sort(dia_sample, dia_sample + SAMPLES, std::less<int>());
-                    int log2n = 0;
-                    int tempn = n;
-                    while (tempn >>= 1)
-                        ++log2n;
-                    if (dia_sample[SAMPLES / 2] < 4 * log2n) {
-                        edge_traversal = true;
-                    }
-                }
-            }
         }
         //printf("%d\n",edge_count_main);
     }

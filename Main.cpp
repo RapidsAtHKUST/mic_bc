@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <vector>
+#include <queue>
 #include <set>
 
 #include "ParseArgs.h"
@@ -16,6 +17,51 @@
 
 #include "MIC_BC.h"
 
+bool sampling(Graph g){
+    int sampling_number = 512;
+    std::vector<int> diameters(sampling_number, INT_MAX);
+    for(int it = 0 ; it < sampling_number; it++){
+        int depth = 0;
+        std::vector<bool> vis(g.n, false);
+        std::vector<int> que1, que2;
+        que1.push_back(it);
+        vis[it] = true;
+        while(1){
+            for(int i = 0 ; i < que1.size(); i++){
+                int u = que1[i];
+                for(int j = g.R[u]; j < g.R[u+1]; j++){
+                    int v = g.C[j];
+                    if(!vis[v]){
+                        que2.push_back(v);
+                        vis[v] = true;
+                    }
+                }
+            }
+            if(que2.size() == 0){
+                break;
+            }else{
+                que1.clear();
+                for(int i = 0 ; i < que2.size(); i++){
+                    que1.push_back(que2[i]);
+                }
+                que2.clear();
+                depth++;
+            }
+        }
+        diameters[it] = depth;
+    }
+
+    std::sort(diameters.begin(), diameters.end(), std::less<int>());
+    int log2n = 0;
+    int tempn = g.n;
+    while (tempn >>= 1)
+        ++log2n;
+    if (diameters[sampling_number / 2] < 4 * log2n) {
+        return true;
+    }
+
+    return false;
+}
 
 int main(int argc, char *argv[]) {
 
@@ -71,7 +117,13 @@ int main(int argc, char *argv[]) {
                 std::cout <<std::endl;
 #endif
     }
-
+    //test running platform and sampling the input graph
+    bool small_diameter = sampling(g);
+    if(small_diameter){
+        std::cout << "This is a small diameter graph." << std::endl;
+    }else{
+        std::cout << "This is a large diameter graph." << std::endl;
+    }
 
     std::set<int> source_vertices;
     std::vector<float> bc_cpu;
@@ -120,22 +172,22 @@ int main(int argc, char *argv[]) {
                     break;
                 case PAR_CPU:
                     _t.start_wall_time();
-                    result = BC_cpu_parallel(g, args.num_cores_cpu, PAR_CPU | RUN_ON_CPU);
+                    result = BC_cpu_parallel(g, args.num_cores_cpu, small_diameter, PAR_CPU | RUN_ON_CPU);
                     _t.stop_wall_time();
                     break;
                 case PAR_CPU_1_DEG:
                     _t.start_wall_time();
-                    result = BC_cpu_parallel(g_out, args.num_cores_cpu, PAR_CPU_1_DEG | RUN_ON_CPU);
+                    result = BC_cpu_parallel(g_out, args.num_cores_cpu, small_diameter, PAR_CPU_1_DEG | RUN_ON_CPU);
                     _t.stop_wall_time();
                     //g_util.print_BC_scores(result, nullptr);
                     break;
                 case MIC_OFF:
 #ifdef KNL
-                    _t.start_wall_time();
-                    result = BC_cpu_parallel(g, args.num_cores_cpu, MIC_OFF);
+                     _t.start_wall_time();
+                    result = BC_cpu_parallel(g, args.num_cores_cpu, small_diameter, MIC_OFF);
                     _t.stop_wall_time();
 #else
-                    MIC_BC *mic_bc = new MIC_BC(g, args.num_cores_mic, MIC_OFF);
+                    MIC_BC *mic_bc = new MIC_BC(g, args.num_cores_mic, small_diameter, MIC_OFF);
                     _t.start_wall_time();
                     result = mic_bc->opt_bc();
                     _t.stop_wall_time();
@@ -144,10 +196,10 @@ int main(int argc, char *argv[]) {
                 case MIC_OFF_1_DEG:
 #ifdef KNL
                     _t.start_wall_time();
-                    result = BC_cpu_parallel(g_out, args.num_cores_cpu, MIC_OFF_1_DEG);
+                    result = BC_cpu_parallel(g_out, args.num_cores_cpu, small_diameter, MIC_OFF_1_DEG);
                     _t.stop_wall_time();
 #else
-                    MIC_BC *mic_bc_o = new MIC_BC(g_out, args.num_cores_mic, MIC_OFF_1_DEG);
+                    MIC_BC *mic_bc_o = new MIC_BC(g_out, args.num_cores_mic, small_diameter, MIC_OFF_1_DEG);
                     _t.start_wall_time();
                     result = mic_bc_o->opt_bc();
                     _t.stop_wall_time();
@@ -159,7 +211,7 @@ int main(int argc, char *argv[]) {
                     result = BC_cpu_parallel(g, args.num_cores_cpu, MIC_OFF_E_V_TRVL);
                     _t.stop_wall_time();
 #else
-                    MIC_BC *mic_bc_ev = new MIC_BC(g, args.num_cores_mic, MIC_OFF_E_V_TRVL);
+                    MIC_BC *mic_bc_ev = new MIC_BC(g, args.num_cores_mic, small_diameter,  MIC_OFF_E_V_TRVL);
                     _t.start_wall_time();
                     result = mic_bc_ev->opt_bc();
                     _t.stop_wall_time();

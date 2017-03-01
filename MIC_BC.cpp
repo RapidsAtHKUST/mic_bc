@@ -13,6 +13,7 @@
 #pragma offload_attribute (push,target(mic))
 
 #include <sys/time.h>
+
 int num_cores;
 uint32_t mode;
 int n;
@@ -25,7 +26,7 @@ int *which_comp;
 float *result_mic;
 #pragma offload_attribute (pop)
 
-MIC_BC::MIC_BC(Graph g, int num_cores_t, uint32_t mode_t) {
+MIC_BC::MIC_BC(Graph g, int num_cores_t, bool is_small_diameter, uint32_t mode_t) {
 
     current_node = 0;
     n = g.n;
@@ -35,6 +36,7 @@ MIC_BC::MIC_BC(Graph g, int num_cores_t, uint32_t mode_t) {
         m = 1;
     num_cores = num_cores_t;
     this->g = g;
+    this->is_small_diameter = is_small_diameter;
     mode = mode_t;
     result.resize(n);
     std::fill_n(result.begin(), n, 0);
@@ -48,7 +50,7 @@ MIC_BC::MIC_BC(Graph g, int num_cores_t, uint32_t mode_t) {
         std::memcpy(weight, g.weight, sizeof(int) * n);
         std::memcpy(which_comp, g.which_components, sizeof(int) * n);
     } else {
-        for(int i = 0; i < n; i ++)
+        for (int i = 0; i < n; i++)
             weight[i] = 1;
         std::memset(which_comp, 0, sizeof(int) * n);
     }
@@ -143,7 +145,7 @@ std::vector<float> MIC_BC::opt_bc() {
         std::cout << "\taccumulation time: " << s2_t << " s\n" << std::endl;
         std::cout << "\ttotal time: " << ms_wall / 1000.0 << " s\n" << std::endl;
 #else
-        MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, mode);
+        MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, is_small_diameter, num_cores, mode);
 #endif
     }
 

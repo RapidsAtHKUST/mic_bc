@@ -10,8 +10,21 @@ if (Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIRS})
 endif ()
 
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set (CMAKE_CXX_STANDARD 11)
 
-add_compile_options(-std=c++11 -fopenmp -qoffload -O3 -g)
+if (CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
+    # using Clang
+elseif (CMAKE_CXX_COMPILER_ID MATCHES ".*GNU")
+    # using GCC
+    add_compile_options(-std=c++11 -fopenmp -O3 -g)
+elseif (CMAKE_CXX_COMPILER_ID MATCHES ".*Intel")
+    # using Intel C++
+    add_compile_options(-std=c++11 -fopenmp -qoffload -O3 -g)
+elseif (CMAKE_CXX_COMPILER_ID MATCHES ".*MSVC")
+    # using Visual Studio C++
+endif()
+
 #add_definitions(-DKNL)
 
 include_directories("${PROJECT_BINARY_DIR}")
