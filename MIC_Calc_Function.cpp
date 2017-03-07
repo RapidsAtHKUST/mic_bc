@@ -11,6 +11,7 @@
 #ifndef KNL
 #pragma offload_attribute(push, target(mic))
 #endif
+
 #include <vector>
 #include <queue>
 #include <stack>
@@ -24,6 +25,7 @@
 #include <cmath>
 #include <algorithm>
 #include <mutex>
+
 #ifndef KNL
 #pragma offload_attribute(pop)
 #endif
@@ -177,9 +179,8 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                           const int *F, const int *C, const int *weight, const int *which_comp,
                           float *result_mic, const int num_cores, bool is_small_diameter, uint32_t mode) {
 
-#define THOLD 0.5
+#define THOLD 0.3
 #define CHUNK_SIZE 1
-#define SAMPLES 512
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
     omp_set_num_threads(num_cores);
     int *d_a[num_cores];
@@ -189,14 +190,25 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             *endpoints_a[num_cores];
     unsigned long long *succeed_count_a[num_cores];
 
-    int dia_sample[SAMPLES];
-    int edge_traversal = false;
+    bool edge_enable = 0;
 
-    if(mode & MIC_OFF_E_V_TRVL)
-        edge_traversal = 1 && is_small_diameter;
-    if((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG) || (mode & RUN_ON_CPU)){
-        edge_traversal = false;
+    if (mode & MIC_OFF_E_V_TRVL)
+        edge_enable = is_small_diameter;
+
+    if ((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG) || (mode & RUN_ON_CPU)) {
+        edge_enable = 0;
     }
+
+
+#ifdef EDGEONLY
+    printf("Edge Only.\n");
+
+#endif
+#ifdef WEONLY
+    printf("Work-efficient Only.\n");
+
+#endif
+
 #ifdef __MIC__
     // There are only 16 memory channels
 #pragma omp parallel for num_threads(16)
@@ -214,9 +226,6 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                 sizeof(unsigned long long) * n, 64);
     }
 
-    for (int i = 0; i < SAMPLES; i++) {
-        dia_sample[i] = INT_MAX;
-    }
 
     int edge_count_main = 0;
 #pragma omp parallel for schedule(dynamic)
@@ -294,8 +303,14 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             }
 
             while (!calc_done) {
-                if (edge_traversal
-                    && successors_count[depth] > THOLD * 2 *m) {
+                bool e = edge_enable && (successors_count[depth] > THOLD * n);
+#ifdef EDGEONLY
+                e = true;
+#endif
+#ifdef WEONLY
+                e = false;
+#endif
+                if (e) {
                     for (int k = 0; k < 2 * m; k++) {
                         int v = F[k];
                         if (d[v] == depth) {
@@ -375,59 +390,6 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                 if (which_comp[start_point] == which_comp[kk])
                     result_mic[thread_id * n + kk] += delta[kk] * weight[start_point];
             }
-//		while (depth > 0) {
-//			if (0 && allow_edge && edge_traversal
-//					&& successors_count[depth] > THOLD * m) {
-//				for (int kk = 0; kk < 2 * m; kk++) {
-//					int w = F[kk];
-//					if (d[w] == depth) {
-//						int v = C[kk];
-//						if (d[v] == (d[w] + 1)) {
-//							float change = (sigma[w] / (float) sigma[v])
-//									* (1.0f + delta[v]);
-//							delta[w] += change;
-//						}
-//					}
-//				}
-//			} else {
-//				for (int kk = endpoints[depth]; kk < endpoints[depth + 1];
-//						kk++) {
-//					int w = S[kk];
-//					float dsw = 0;
-//					float sw = (float) sigma[w];
-//					for (int z = R[w]; z < R[w + 1]; z++) {
-//						int v = C[z];
-//						if (d[v] == (d[w] + 1)) {
-//                            dsw += (sw / (float) sigma[v]) * (1.0f + delta[v]);
-//						}
-//					}
-//					delta[w] = dsw;
-//				}
-//			}
-//			depth--;
-//		}
-//        while(depth > -1){
-//            for(int w = endpoints[depth]; w < endpoints[depth + 1]; w++){
-//                for(int idx = 0; idx < P[w].size(); idx++){
-//                    int v = P[w][idx];
-//                    delta[v] += delta[w];
-//                }
-//            }
-//            depth--;
-//        }
-//
-//		for (int kk = 0; kk < n && kk != start_point; kk++){
-//
-//			result_mic[thread_id * n + kk] += delta[kk] * weight[start_point];
-//		}
-//#ifdef DEBUG
-//        std::cout << "delta:\n";
-//        for(int k = 0; k < n; k++){
-//            std::cout << k + 1 <<": " << delta[k] << "\n";
-//        }
-//        std::cout << std::endl;
-//#endif
         }
-        //printf("%d\n",edge_count_main);
     }
 }

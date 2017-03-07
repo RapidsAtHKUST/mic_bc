@@ -127,7 +127,7 @@ std::vector<float> BC_cpu_parallel(Graph g, int num_cores, bool is_small_diamete
     std::cout << "\taccumulation time: " << s2_t << " s\n" << std::endl;
     std::cout << "\ttotal time: " << _t.ms_wall / 1000.0 << " s\n" << std::endl;
 #else
-    MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_cpu, num_cores, mode);
+    MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_cpu, num_cores, is_small_diameter, mode);
 #endif
 
 
