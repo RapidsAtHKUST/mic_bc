@@ -179,7 +179,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                           const int *F, const int *C, const int *weight, const int *which_comp,
                           float *result_mic, const int num_cores, bool is_small_diameter, uint32_t mode) {
 
-#define THOLD 0.3
+#define THOLD 0.5
 #define CHUNK_SIZE 1
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
     omp_set_num_threads(num_cores);
@@ -303,7 +303,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             }
 
             while (!calc_done) {
-                bool e = edge_enable && (successors_count[depth] > THOLD * n);
+                bool e = edge_enable && (successors_count[depth] > THOLD * 2 *m);
 #ifdef EDGEONLY
                 e = true;
 #endif

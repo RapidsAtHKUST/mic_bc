@@ -25,6 +25,8 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES ".*MSVC")
     # using Visual Studio C++
 endif()
 
+#add_definitions(-DEDGEONLY)
+#add_definitions(-DWEONLY)
 #add_definitions(-DKNL)
 
 include_directories("${PROJECT_BINARY_DIR}")
