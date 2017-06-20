@@ -16,17 +16,20 @@
 #include <string>
 #include <bitset>
 #include <vector>
+
 using std::string;
 
 class ParseArgs {
 public:
-	ParseArgs();
-	char *InputFile;
-	char *ScoreFile;
-	bool verify;
-	bool cpu_parallel;
-	bool printResult;
-	bool reduce_1_deg;
+    ParseArgs();
+
+    char *InputFile;
+    char *sourceVertexFile;
+
+    bool verify;
+    bool cpu_parallel;
+    bool printResult;
+    bool reduce_1_deg;
     /*run_flags is a bitmap for selecting the running mode:
      * 0000 0000 -> run nothing
      * 0000 0001 -> run naive cpu version
@@ -38,17 +41,20 @@ public:
      * 1000 0000 -> verify the results
      *
      */
-    std::bitset<16> run_flags;
-	void Parser(int argc, char *argv[]);
-	void PrintUsage();
+    std::bitset<32> run_flags;
 
-    std::map<unsigned short, string> mode_name;
+    void Parser(int argc, char *argv[]);
 
-	int num_devices;
-	int num_cores_mic;
-	int num_cores_cpu;
+    void PrintUsage();
 
-	virtual ~ParseArgs();
+    std::map<unsigned int, string> mode_name;
+
+    float traversal_thresold;
+    int num_devices;
+    int num_cores_mic;
+    int num_cores_cpu;
+
+    virtual ~ParseArgs();
 };
 
 #endif /* PARSEARGS_H_ */

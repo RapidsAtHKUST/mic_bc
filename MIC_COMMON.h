@@ -16,7 +16,9 @@
 #define MIC_OFF 0x08
 #define MIC_OFF_1_DEG 0x10
 #define MIC_OFF_E_V_TRVL 0x20
+#define MIC_OFF_WE_ONLY 0x40
 #define VERIFY 0x80
+#define ENABLE_INNER_LOOP 0x1000
 
 #define INIT_T 0x0100
 #define TRAVER_T 0x0200

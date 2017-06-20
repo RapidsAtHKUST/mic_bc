@@ -11,7 +11,7 @@ if (Boost_FOUND)
 endif ()
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set (CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 11)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
     # using Clang
@@ -23,11 +23,12 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES ".*Intel")
     add_compile_options(-std=c++11 -fopenmp -qoffload -O3 -g)
 elseif (CMAKE_CXX_COMPILER_ID MATCHES ".*MSVC")
     # using Visual Studio C++
-endif()
+endif ()
 
+#add_definitions(-DDEBUG)
 #add_definitions(-DEDGEONLY)
 #add_definitions(-DWEONLY)
-#add_definitions(-DKNL)
+add_definitions(-DKNL)
 
 include_directories("${PROJECT_BINARY_DIR}")
 file(GLOB SOURCES *.cpp)

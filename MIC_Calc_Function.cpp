@@ -125,7 +125,7 @@ __ONMIC__ void MIC_Level_Parallel(int n, int m, int *__NOLP__ R,
             cont = 0;
             ++level;
             //SpMM
-#pragma omp parallel for schedule (dynamic,CC_CHUNK)
+#pragma omp parallel for schedule (dynamic, CC_CHUNK)
             for (int i = 0; i < n; ++i) {
                 int vali[vector_size];
 #pragma unroll
@@ -144,7 +144,7 @@ __ONMIC__ void MIC_Level_Parallel(int n, int m, int *__NOLP__ R,
             }
             //Update
             float flevel = 1.0f / (float) level;
-#pragma omp parallel for schedule (dynamic,CC_CHUNK)
+#pragma omp parallel for schedule (dynamic, CC_CHUNK)
             for (int i = 0; i < n; ++i) {
                 int cu[vector_size];
 #pragma unroll
@@ -175,12 +175,243 @@ __ONMIC__ void MIC_Level_Parallel(int n, int m, int *__NOLP__ R,
 
 }
 
+__ONMIC__ void MIC_Opt_BC_inner_loop_parallel(const int n, const int m, const int *R,
+                                              const int *F, const int *C, const int *weight, const int *which_comp,
+                                              float *result_mic, const int num_cores, bool is_small_diameter,
+                                              uint32_t mode, float traversal_thresold,
+                                              const int *source_vertices, int num_source_vertices) {
+
+//#define THOLD 0.5
+//#define CHUNK_SIZE 1
+//将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
+    printf("Inner loop parallel\n");
+    omp_set_num_threads(num_cores);
+    int *d_a;
+    unsigned long long *sigma_a;
+    float *delta_a;
+    int *Q2_a, *Q_a, *S_a, *endpoints_a;
+
+    bool edge_enable = 0;
+    long edge_traversal_applied_times = 0;
+
+    if (mode & MIC_OFF_E_V_TRVL)
+        edge_enable = is_small_diameter;
+
+    if ((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG) || (mode & RUN_ON_CPU) || (mode & MIC_OFF_WE_ONLY)) {
+        edge_enable = 0;
+#ifdef DEBUG
+        printf("disable 'edge_enable', running mode: %x\n", mode);
+#endif
+    }
+
+    printf("applied 'edge_enable' value: %d\n", edge_enable);
+
+#ifdef EDGEONLY
+    printf("Edge Only.\n");
+
+#endif
+#ifdef WEONLY
+    printf("Work-efficient Only.\n");
+
+#endif
+
+    d_a = (int *) _mm_malloc(sizeof(int) * n, 64);
+    sigma_a = (unsigned long long *) _mm_malloc(
+            sizeof(unsigned long long) * n, 64);
+    delta_a = (float *) _mm_malloc(sizeof(float) * n, 64);
+    Q2_a = (int *) _mm_malloc(sizeof(int) * n, 64);
+    Q_a = (int *) _mm_malloc(sizeof(int) * n, 64);
+    endpoints_a = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
+    S_a = (int *) _mm_malloc(sizeof(int) * n, 64);
+
+    for (int ind = 0; ind < n; ind++) {
+        if (R[ind + 1] - R[ind] != 0) {
+
+            int start_point = ind;
+
+            int *d = d_a;
+            unsigned long long *sigma = sigma_a;
+            float *delta = delta_a;
+            int *Q = Q_a;
+            int *Q2 = Q2_a;
+            int *endpoints = endpoints_a;
+            int *S = S_a;
+            long long successors_count = 0;
+
+            S[0] = start_point;
+            endpoints[0] = 0;
+            endpoints[1] = 1;
+
+            int Q_len = 0;
+            int Q2_len = 0;
+            int S_len = 1;
+            int depth = 0;
+            int endpoints_len = 2;
+            bool calc_done = false;
+
+            int edge_count = 0, we_count = 0;
+
+            d[start_point] = 0;
+            sigma[start_point] = 1;
+
+            memset(d, 0xef, sizeof(int) * n);
+            memset(sigma, 0, sizeof(unsigned long long) * n);
+            memset(delta, 0, sizeof(float) * n);
+
+            d[start_point] = 0;
+            sigma[start_point] = 1;
+#ifdef STAGET
+            if(mode & INIT_T)
+                continue;
+#endif
+
+#pragma omp parallel for
+            for (int r = R[start_point]; r < R[start_point + 1]; r++) {
+                int w = C[r];
+                if (d[w] == 0xefefefef) {
+                    d[w] = 1;
+                    int current_length;
+#pragma omp atomic capture
+                    current_length = Q2_len++;
+                    Q2[current_length] = w;
+                }
+                if (d[w] == (d[start_point] + 1)) {
+                    sigma[w]++;
+                }
+            }
+
+            if (Q2_len == 0) {
+                calc_done = true;
+            } else {
+                for (int kk = 0; kk < Q2_len; kk++) {
+                    int v = Q2[kk];
+                    Q[kk] = v;
+                    successors_count += R[v + 1] - R[v];
+                    S[kk + S_len] = v;
+                }
+                endpoints[endpoints_len] = endpoints[endpoints_len - 1] + Q2_len;
+                endpoints_len++;
+                Q_len = Q2_len;
+                S_len += Q2_len;
+                Q2_len = 0;
+                depth++;
+            }
+
+            while (!calc_done) {
+                bool e = edge_enable && (successors_count > traversal_thresold * 2 * m);
+#ifdef EDGEONLY
+                e = true;
+#endif
+#ifdef WEONLY
+                e = false;
+#endif
+                if (e) {
+#ifdef DEBUG
+#pragma omp atomic
+                    edge_traversal_applied_times++;
+#endif
+#pragma omp parallel
+                    for (int k = 0; k < 2 * m; k++) {
+                        int v = F[k];
+                        if (d[v] == depth) {
+                            int w = C[k];
+                            if (d[w] == 0xefefefef) {
+                                d[w] = d[v] + 1;
+                                int current_length;
+#pragma omp atomic capture
+                                current_length = Q2_len++;
+                                Q2[current_length] = w;
+                            }
+                            if (d[w] == (d[v] + 1)) {
+                                sigma[w] += sigma[v];
+                            }
+                        }
+                    }
+                } else {
+#pragma omp parallel for
+                    for (int k = 0; k < Q_len; k++) {
+                        int v = Q[k];
+                        for (int r = R[v]; r < R[v + 1]; r++) {
+                            int w = C[r];
+                            if (d[w] == 0xefefefef) {
+                                d[w] = d[v] + 1;
+                                int current_length;
+#pragma omp atomic capture
+                                current_length = Q2_len++;
+                                Q2[current_length] = w;
+                            }
+                            if (d[w] == (d[v] + 1)) {
+                                sigma[w] += sigma[v];
+                            }
+                        }
+                    }
+                }
+                if (Q2_len == 0) {
+                    break;
+                } else {
+                    successors_count = 0;
+                    for (int kk = 0; kk < Q2_len; kk++) {
+                        int v = Q2[kk];
+                        Q[kk] = v;
+                        successors_count += R[v + 1] - R[v];
+                        S[kk + S_len] = v;
+                    }
+                    endpoints[endpoints_len] = endpoints[endpoints_len - 1]
+                                               + Q2_len;
+                    endpoints_len++;
+                    Q_len = Q2_len;
+                    S_len += Q2_len;
+                    Q2_len = 0;
+                    depth++;
+                }
+            }
+
+            depth = d[S[S_len - 1]];
+
+#ifdef STAGET
+            if(mode & TRAVER_T)
+                continue;
+#endif
+
+            if ((mode & MIC_OFF_1_DEG) || (mode & PAR_CPU_1_DEG))
+                for (int i = 0; i < n; i++) {
+                    delta[i] = weight[i] - 1;
+
+                }
+            while (S_len > 1) {
+                int w = S[--S_len];
+                //if (w == start_point) continue;
+                for (int r = R[w]; r < R[w + 1]; r++) {
+                    int v = C[r];
+                    if (d[w] == (d[v] + 1)) {
+                        delta[v] += (sigma[v] * (1 + delta[w])) / sigma[w];
+                    }
+                }
+            }
+            for (int kk = 0; kk < start_point; kk++) {
+                if (which_comp[start_point] == which_comp[kk])
+                    result_mic[1 * n + kk] += delta[kk] * weight[start_point];
+            }
+            for (int kk = start_point + 1; kk < n; kk++) {
+                if (which_comp[start_point] == which_comp[kk])
+                    result_mic[1 * n + kk] += delta[kk] * weight[start_point];
+            }
+        }
+    }
+#ifdef DEBUG
+    printf("edge traversal enabled times: %d\n", edge_traversal_applied_times);
+#endif
+}
+
+
 __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                           const int *F, const int *C, const int *weight, const int *which_comp,
-                          float *result_mic, const int num_cores, bool is_small_diameter, uint32_t mode) {
+                          float *result_mic, const int num_cores, bool is_small_diameter, uint32_t mode,
+                          float traversal_thresold,
+                          const int *source_vertices, int num_source_vertices) {
 
-#define THOLD 0.5
-#define CHUNK_SIZE 1
+//#define THOLD 0.5
+//#define CHUNK_SIZE 1
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
     omp_set_num_threads(num_cores);
     int *d_a[num_cores];
@@ -188,17 +419,21 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
     float *delta_a[num_cores];
     int *Q2_a[num_cores], *Q_a[num_cores], *S_a[num_cores],
             *endpoints_a[num_cores];
-    unsigned long long *succeed_count_a[num_cores];
 
     bool edge_enable = 0;
+    long edge_traversal_applied_times = 0;
 
     if (mode & MIC_OFF_E_V_TRVL)
         edge_enable = is_small_diameter;
 
-    if ((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG) || (mode & RUN_ON_CPU)) {
+    if ((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG) || (mode & RUN_ON_CPU) || (mode & MIC_OFF_WE_ONLY)) {
         edge_enable = 0;
+#ifdef DEBUG
+        printf("disable 'edge_enable', running mode: %x\n", mode);
+#endif
     }
 
+    printf("applied 'edge_enable' value: %d\n", edge_enable);
 
 #ifdef EDGEONLY
     printf("Edge Only.\n");
@@ -222,12 +457,8 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
         Q_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
         endpoints_a[i] = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
         S_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
-        succeed_count_a[i] = (unsigned long long *) _mm_malloc(
-                sizeof(unsigned long long) * n, 64);
     }
 
-
-    int edge_count_main = 0;
 #pragma omp parallel for schedule(dynamic)
     for (int ind = 0; ind < n; ind++) {
         if (R[ind + 1] - R[ind] != 0) {
@@ -242,8 +473,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             int *Q2 = Q2_a[thread_id];
             int *endpoints = endpoints_a[thread_id];
             int *S = S_a[thread_id];
-            unsigned long long *successors_count =
-                    succeed_count_a[thread_id];
+            long long successors_count = 0;
 
             S[0] = start_point;
             endpoints[0] = 0;
@@ -264,7 +494,6 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             memset(d, 0xef, sizeof(int) * n);
             memset(sigma, 0, sizeof(unsigned long long) * n);
             memset(delta, 0, sizeof(float) * n);
-            memset(successors_count, 0, sizeof(unsigned long long) * n);
 
             d[start_point] = 0;
             sigma[start_point] = 1;
@@ -291,7 +520,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                 for (int kk = 0; kk < Q2_len; kk++) {
                     int v = Q2[kk];
                     Q[kk] = v;
-                    successors_count[depth + 1] += R[v + 1] - R[v];
+                    successors_count += R[v + 1] - R[v];
                     S[kk + S_len] = v;
                 }
                 endpoints[endpoints_len] = endpoints[endpoints_len - 1] + Q2_len;
@@ -303,7 +532,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             }
 
             while (!calc_done) {
-                bool e = edge_enable && (successors_count[depth] > THOLD * 2 *m);
+                bool e = edge_enable && (successors_count > traversal_thresold * 2 * m);
 #ifdef EDGEONLY
                 e = true;
 #endif
@@ -311,6 +540,10 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                 e = false;
 #endif
                 if (e) {
+#ifdef DEBUG
+#pragma omp atomic
+                    edge_traversal_applied_times++;
+#endif
                     for (int k = 0; k < 2 * m; k++) {
                         int v = F[k];
                         if (d[v] == depth) {
@@ -344,10 +577,11 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                 if (Q2_len == 0) {
                     break;
                 } else {
+                    successors_count = 0;
                     for (int kk = 0; kk < Q2_len; kk++) {
                         int v = Q2[kk];
                         Q[kk] = v;
-                        successors_count[depth + 1] += R[v + 1] - R[v];
+                        successors_count += R[v + 1] - R[v];
                         S[kk + S_len] = v;
                     }
                     endpoints[endpoints_len] = endpoints[endpoints_len - 1]
@@ -392,4 +626,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             }
         }
     }
+#ifdef DEBUG
+    printf("edge traversal enabled times: %d\n", edge_traversal_applied_times);
+#endif
 }

@@ -17,8 +17,10 @@
 #include <set>
 
 #ifndef __MIC__
+
 #include <boost/algorithm/string.hpp>
 #include <boost/bimap.hpp>
+
 #endif
 
 #include <vector>
@@ -27,33 +29,46 @@
 
 class GraphUtility {
 public:
-	GraphUtility(Graph *g);
-	void print_adjacency_list();
-	void print_BC_scores(std::vector<float> bc, char *outfile);
-	void print_CSR();
-	void print_R();
-	void print_high_degree_vertices();
-	void print_numerical_edge_file(char *outfile);
-	void print_number_of_isolated_vertices();
+    GraphUtility(Graph *g);
 
-	void parse(char *file);
-	void parse_metis(char *file);
-	void parse_edgelist(char *file);
+    void print_adjacency_list();
 
-	bool reduce_1_degree_vertices(Graph *in_g, Graph *out_g);
+    void print_BC_scores(std::vector<float> bc, char *outfile);
+
+    void print_CSR();
+
+    void print_R();
+
+    void print_high_degree_vertices();
+
+    void print_numerical_edge_file(char *outfile);
+
+    void print_number_of_isolated_vertices();
+
+    void parse(char *file);
+
+    void parse_metis(char *file);
+
+    void parse_edgelist(char *file);
+
+    bool reduce_1_degree_vertices(Graph *in_g, Graph *out_g);
+
     int find_components_size(Graph *g);
-	void verify(Graph g,const std::vector<float> bc_cpu, const std::vector<float> bc_mic);
 
-	bool is_number(const std::string& s);
-	bool is_alphanumeric(const std::string &s);
+    void verify(Graph g, const std::vector<float> bc_cpu, const std::vector<float> bc_mic);
 
-	Graph *g;
+    bool is_number(const std::string &s);
+
+    bool is_alphanumeric(const std::string &s);
+
+    Graph *g;
 
 #ifndef __MIC__
-	boost::bimap<unsigned, std::string> IDs; //Associate vertices with other data.
-	//In general the unsigned could be replaced with a struct of attributes.
+    boost::bimap<unsigned, std::string> IDs; //Associate vertices with other data.
+    //In general the unsigned could be replaced with a struct of attributes.
 #endif
-	virtual ~GraphUtility();
+
+    virtual ~GraphUtility();
 };
 
 #endif /* GRAPHUTILITY_H_ */

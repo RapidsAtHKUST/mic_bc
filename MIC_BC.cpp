@@ -27,11 +27,13 @@ int *which_comp;
 float *result_mic;
 #pragma offload_attribute (pop)
 
-MIC_BC::MIC_BC(Graph g, int num_cores_t, bool small_diameter, uint32_t mode_t) {
+MIC_BC::MIC_BC(Graph g, int num_cores_t, bool small_diameter, int* source_vertices, int num_source_vertices, uint32_t mode_t) {
 
     current_node = 0;
     n = g.n;
     m = g.m;
+    this->source_vertices = source_vertices;
+    this->num_source_vertices = num_source_vertices;
     //in case g->m==0, _mm_malloc cannot allocate zero or nagetive length
     if (m <= 0)
         m = 1;
@@ -40,7 +42,9 @@ MIC_BC::MIC_BC(Graph g, int num_cores_t, bool small_diameter, uint32_t mode_t) {
     is_small_diameter = small_diameter;
     mode = mode_t;
     result.resize(n);
-    std::fill_n(result.begin(), n, 0);
+    for(int i = 0 ; i < n; i++){
+        result[i] = 0;
+    }
 
     R = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
     F = (int *) _mm_malloc(sizeof(int) * (m * 2), 64);
@@ -74,12 +78,13 @@ void MIC_BC::transfer_to_mic() {
             in(n)\
             in(m)\
             in(is_small_diameter)\
-			in(R[0:n+1] : ALLOC)\
-			in(F[0:m*2] : ALLOC)\
-			in(C[0:m*2] : ALLOC)\
+            in(source_vertices[0:num_source_vertices]: ALLOC)\
+            in(R[0:n+1] : ALLOC)\
+            in(F[0:m*2] : ALLOC)\
+            in(C[0:m*2] : ALLOC)\
             in(weight[0:n]: ALLOC)\
             in(which_comp[0:n]: ALLOC)\
-			in(result_mic[0:(n+100)*256] : ALLOC)
+            in(result_mic[0:(n+100)*256] : ALLOC)
     {
     }
 
@@ -89,10 +94,10 @@ void MIC_BC::transfer_to_mic() {
 std::vector<float> MIC_BC::node_parallel() {
 
 #pragma offload target(mic:0)\
-	nocopy(R[0:n+1] : FREE)\
-	nocopy(F[0:m*2] : FREE)\
-	nocopy(C[0:m*2] : FREE)\
-	out(result_mic[0:(n+100)*256] : FREE)
+    nocopy(R[0:n+1] : FREE)\
+    nocopy(F[0:m*2] : FREE)\
+    nocopy(C[0:m*2] : FREE)\
+    out(result_mic[0:(n+100)*256] : FREE)
     {
         MIC_Coarse_Parallel(n, m, R, F, C, result_mic, num_cores);
 
@@ -109,15 +114,16 @@ std::vector<float> MIC_BC::node_parallel() {
 
 }
 
-std::vector<float> MIC_BC::opt_bc() {
+std::vector<float> MIC_BC::opt_bc(float traversal_thresold) {
 
 #pragma offload target(mic:0)\
-		nocopy(R[0:n+1] : FREE)\
-		nocopy(F[0:m*2] : FREE)\
-		nocopy(C[0:m*2] : FREE)\
+        nocopy(source_vertices[0:num_source_vertices]: FREE)\
+        nocopy(R[0:n+1] : FREE)\
+        nocopy(F[0:m*2] : FREE)\
+        nocopy(C[0:m*2] : FREE)\
         nocopy(weight[0:n]: FREE)\
         nocopy(which_comp[0:n]: FREE)\
-		out(result_mic[0:(n+100)*256] : FREE)
+        out(result_mic[0:(n+100)*256] : FREE)
     {
         timeval start_wall_time_t, end_wall_time_t;
         float ms_wall, init_t, s1_t, s2_t;
@@ -147,7 +153,66 @@ std::vector<float> MIC_BC::opt_bc() {
         std::cout << "\taccumulation time: " << s2_t << " s\n" << std::endl;
         std::cout << "\ttotal time: " << ms_wall / 1000.0 << " s\n" << std::endl;
 #else
-        MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, is_small_diameter, mode);
+        MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, is_small_diameter, mode, traversal_thresold, source_vertices, num_source_vertices);
+#endif
+    }
+
+    for (int i = 0; i < num_cores; i++) {
+        for (int j = 0; j < n; j++) {
+            result[j] += result_mic[i * n + j];
+        }
+    }
+
+    if (mode & MIC_OFF_1_DEG)
+        for (int i = 0; i < n; i++) {
+            result[i] += g.bc[i];
+        }
+    for (int i = 0; i < n; i++)
+        result[i] = result[i] / 2.0f;
+
+    return result;
+}
+
+std::vector<float> MIC_BC::opt_bc_inner_loop(float traversal_thresold){
+
+#pragma offload target(mic:0)\
+        nocopy(source_vertices[0:num_source_vertices]: FREE)\
+        nocopy(R[0:n+1] : FREE)\
+        nocopy(F[0:m*2] : FREE)\
+        nocopy(C[0:m*2] : FREE)\
+        nocopy(weight[0:n]: FREE)\
+        nocopy(which_comp[0:n]: FREE)\
+        out(result_mic[0:(n+100)*256] : FREE)
+    {
+        timeval start_wall_time_t, end_wall_time_t;
+        float ms_wall, init_t, s1_t, s2_t;
+#ifdef STAGET
+        gettimeofday(&start_wall_time_t, nullptr);
+        MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, INIT_T | mode);
+        gettimeofday(&end_wall_time_t, nullptr);
+        ms_wall = ((end_wall_time_t.tv_sec - start_wall_time_t.tv_sec) * 1000 * 1000
+                   + end_wall_time_t.tv_usec - start_wall_time_t.tv_usec) / 1000.0;
+        init_t = ms_wall/1000.0;
+        std::cout << "\tinitial time: " << init_t << " s" << std::endl;
+
+        gettimeofday(&start_wall_time_t, nullptr);
+        MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, TRAVER_T | mode);
+        gettimeofday(&end_wall_time_t, nullptr);
+        ms_wall = ((end_wall_time_t.tv_sec - start_wall_time_t.tv_sec) * 1000 * 1000
+                   + end_wall_time_t.tv_usec - start_wall_time_t.tv_usec) / 1000.0;
+        s1_t = ms_wall/1000.0 - init_t;
+        std::cout << "\ttraversal time: " << s1_t << " s" << std::endl;
+
+        gettimeofday(&start_wall_time_t, nullptr);
+        MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, mode);
+        gettimeofday(&end_wall_time_t, nullptr);
+        ms_wall = ((end_wall_time_t.tv_sec - start_wall_time_t.tv_sec) * 1000 * 1000
+                   + end_wall_time_t.tv_usec - start_wall_time_t.tv_usec) / 1000.0;
+        s2_t = ms_wall/1000.0 - init_t - s1_t;
+        std::cout << "\taccumulation time: " << s2_t << " s\n" << std::endl;
+        std::cout << "\ttotal time: " << ms_wall / 1000.0 << " s\n" << std::endl;
+#else
+        MIC_Opt_BC_inner_loop_parallel(n, m, R, F, C, weight, which_comp, result_mic, num_cores, is_small_diameter, mode, traversal_thresold, source_vertices, num_source_vertices);
 #endif
     }
 

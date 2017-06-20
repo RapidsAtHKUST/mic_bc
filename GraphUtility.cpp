@@ -386,7 +386,7 @@ void GraphUtility::verify(Graph g, const std::vector<float> bc_cpu,
 }
 
 bool GraphUtility::reduce_1_degree_vertices(Graph *in_g, Graph *out_g) {
-    out_g-> total_comp= find_components_size(in_g);
+    out_g->total_comp = find_components_size(in_g);
 
     if (out_g->which_components == nullptr) {
         out_g->R = new int[in_g->n + 1];
@@ -414,8 +414,8 @@ bool GraphUtility::reduce_1_degree_vertices(Graph *in_g, Graph *out_g) {
 
     bool finish = true;
 #ifdef DEBUG
-    std::cout<<"\tCSR INDEX ARRAY:\n\t\t";
-    for(int i = 0 ; i < in_g->n; i ++){
+    std::cout << "\tCSR INDEX ARRAY:\n\t\t";
+    for (int i = 0; i < in_g->n; i++) {
         std::cout << R[i] << '\t';
     }
     std::cout << std::endl;
@@ -424,8 +424,8 @@ bool GraphUtility::reduce_1_degree_vertices(Graph *in_g, Graph *out_g) {
     for (int i = 0; i < in_g->n; i++) {
         if (R[i + 1] - R[i] == 1) {
             int v = C[R[i]];
-            if(deleted.find(std::make_pair(i, v)) != deleted.end() ||
-                    deleted.find(std::make_pair(v, i)) != deleted.end())
+            if (deleted.find(std::make_pair(i, v)) != deleted.end() ||
+                deleted.find(std::make_pair(v, i)) != deleted.end())
                 continue;
             finish = false;
 
