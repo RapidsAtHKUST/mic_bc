@@ -28,7 +28,7 @@ endif ()
 #add_definitions(-DDEBUG)
 #add_definitions(-DEDGEONLY)
 #add_definitions(-DWEONLY)
-add_definitions(-DKNL)
+#add_definitions(-DKNL)
 
 include_directories("${PROJECT_BINARY_DIR}")
 file(GLOB SOURCES *.cpp)

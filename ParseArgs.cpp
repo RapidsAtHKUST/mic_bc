@@ -61,14 +61,14 @@ void ParseArgs::Parser(int argc, char *argv[]) {
         PrintUsage();
 
     int oc;
-    while ((oc = getopt(argc, argv, "i:f:t:o::cvhr")) != -1) {
+    while ((oc = getopt(argc, argv, "i:f:t:o:cvhr")) != -1) {
 
         switch (oc) {
             case 'i':
                 InputFile = optarg;
                 break;
             case 'o':
-                printResult = true;
+                approx = true;
                 sourceVertexFile = optarg;
                 break;
             case 'c':

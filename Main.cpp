@@ -135,22 +135,22 @@ int main(int argc, char *argv[]) {
     std::vector<float> bc_cpu_parallel;
     int *source_vertices_array;
 
-
-//    if(args.sourceVertexFile != nullptr){
-//        std::ifstream sourceFile(args.sourceVertexFile, std::ifstream::in);
-//        while(sourceFile.peek() != EOF){
-//            int vertices_id;
-//            sourceFile >> vertices_id;
-//            source_vertices.insert(vertices_id);
-//        }
-//        sourceFile.close();
-//        source_vertices_array = (int*)malloc(sizeof(int) * source_vertices.size());
-//        int i = 0;
-////        for(auto e = source_vertices.begin(); e != source_vertices.end(); e++){
-////            source_vertices_array[i++] = *e;
-////        }
-//        std::cout << "Source Vertices File is provided with size " << source_vertices.size() << " ratio: " <<((float)source_vertices.size()/g.n)<<  std::endl;
-//    }
+    if(args.approx){
+        std::ifstream sourceFile(args.sourceVertexFile, std::ifstream::in);
+        sourceFile.seekg(0);
+        while(sourceFile.peek() != EOF){
+            int vertices_id;
+            sourceFile >> vertices_id;
+            source_vertices.insert(vertices_id);
+        }
+        sourceFile.close();
+        source_vertices_array = (int*)malloc(sizeof(int) * source_vertices.size());
+        int i = 0;
+        for(auto e = source_vertices.begin(); e != source_vertices.end(); e++){
+            source_vertices_array[i++] = *e;
+        }
+        std::cout << "Source Vertices File is provided with size " << source_vertices.size() << ", ratio: " <<((float)source_vertices.size()/g.n)<<  std::endl;
+    }
 
 
     if (args.run_flags.to_ulong() & VERIFY) {

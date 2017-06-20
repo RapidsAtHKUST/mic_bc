@@ -25,6 +25,7 @@ public:
 
     char *InputFile;
     char *sourceVertexFile;
+    bool approx;
 
     bool verify;
     bool cpu_parallel;
