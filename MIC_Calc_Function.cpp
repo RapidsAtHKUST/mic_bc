@@ -225,12 +225,12 @@ __ONMIC__ void MIC_Opt_BC_inner_loop_parallel(const int n, const int m, const in
     S_a = (int *) _mm_malloc(sizeof(int) * n, 64);
 
     int endNum  = n;
-    if(num_source_vertices >0){
+    if(num_source_vertices >1){
         endNum = num_source_vertices;
     }
 
     for (int index = 0; index < endNum; index++) {
-        int ind = num_source_vertices > 0 ? source_vertices[index] : index;
+        int ind = num_source_vertices > 1 ? source_vertices[index] : index;
 
         if (R[ind + 1] - R[ind] != 0) {
 
@@ -467,14 +467,14 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
     }
 
     int endNum  = n;
-    if(num_source_vertices >0){
+    if(num_source_vertices >1){
         endNum = num_source_vertices;
     }
 
 #pragma omp parallel for schedule(dynamic)
     for (int index = 0; index < endNum; index++) {
 
-        int ind = num_source_vertices > 0 ? source_vertices[index] : index;
+        int ind = num_source_vertices > 1 ? source_vertices[index] : index;
         if (R[ind + 1] - R[ind] != 0) {
 
             int thread_id = omp_get_thread_num();

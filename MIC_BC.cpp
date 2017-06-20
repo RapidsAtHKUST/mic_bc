@@ -32,8 +32,15 @@ MIC_BC::MIC_BC(Graph g, int num_cores_t, bool small_diameter, int* source_vertic
     current_node = 0;
     n = g.n;
     m = g.m;
-    this->source_vertices = source_vertices;
-    this->num_source_vertices = num_source_vertices;
+    //cannot transfer 0 sized array to MIC, fix it to at least 1.
+    if(num_source_vertices > 0){
+        this->source_vertices = source_vertices;
+        this->num_source_vertices = num_source_vertices;
+    } else {
+        this->source_vertices = (int*)malloc(sizeof(int));
+        this->num_source_vertices = 1;
+    }
+
     //in case g->m==0, _mm_malloc cannot allocate zero or nagetive length
     if (m <= 0)
         m = 1;

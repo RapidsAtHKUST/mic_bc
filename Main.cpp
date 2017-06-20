@@ -11,6 +11,8 @@
 #include <vector>
 #include <queue>
 #include <set>
+#include <cstdlib>
+#include <ctime>
 
 #include "ParseArgs.h"
 #include "TimeCounter.h"
@@ -136,20 +138,35 @@ int main(int argc, char *argv[]) {
     int *source_vertices_array;
 
     if(args.approx){
-        std::ifstream sourceFile(args.sourceVertexFile, std::ifstream::in);
-        sourceFile.seekg(0);
-        while(sourceFile.peek() != EOF){
-            int vertices_id;
-            sourceFile >> vertices_id;
-            source_vertices.insert(vertices_id);
+        std::string fileName = std::string(args.sourceVertexFile);
+
+        if(fileName.find(".txt") == std::string::npos){
+            int k = std::strtol(args.sourceVertexFile, nullptr, 0);
+            if(k > g.n) {
+                k = g.n;
+            }
+            std::srand (time(NULL));
+            while(source_vertices.size() < k)
+            {
+                int temp_source = std::rand() % g.n;
+                source_vertices.insert(temp_source);
+            }
+        }else {
+            std::ifstream sourceFile(args.sourceVertexFile, std::ifstream::in);
+            sourceFile.seekg(0);
+            while (sourceFile.peek() != EOF) {
+                int vertices_id;
+                sourceFile >> vertices_id;
+                source_vertices.insert(vertices_id);
+            }
+            sourceFile.close();
         }
-        sourceFile.close();
-        source_vertices_array = (int*)malloc(sizeof(int) * source_vertices.size());
+        source_vertices_array = (int *) malloc(sizeof(int) * source_vertices.size());
         int i = 0;
-        for(auto e = source_vertices.begin(); e != source_vertices.end(); e++){
+        for (auto e = source_vertices.begin(); e != source_vertices.end(); e++) {
             source_vertices_array[i++] = *e;
         }
-        std::cout << "Source Vertices File is provided with size " << source_vertices.size() << ", ratio: " <<((float)source_vertices.size()/g.n)<<  std::endl;
+        std::cout << "Source Vertices is provided with size " << source_vertices.size() << ", ratio: " <<((float)source_vertices.size()/g.n)<<  std::endl;
     }
 
 
