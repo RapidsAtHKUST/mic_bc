@@ -141,7 +141,14 @@ int main(int argc, char *argv[]) {
         std::string fileName = std::string(args.sourceVertexFile);
 
         if (fileName.find(".txt") == std::string::npos) {
-            int k = std::strtol(args.sourceVertexFile, nullptr, 0);
+            int k;
+            if(fileName.find("%") == std::string::npos){
+                k = (int)std::strtol(args.sourceVertexFile, nullptr, 0);
+            }else{ // e.g. 20%
+                std::string percent = fileName.substr(0, fileName.length() - 1);
+                k = (int) (g.n * ((std::strtol(percent.c_str(), nullptr, 0)))/100.0);
+            }
+
             if (k > g.n) {
                 k = g.n;
             }
