@@ -36,7 +36,8 @@ ParseArgs::ParseArgs() {
 
 #ifndef KNL
     mode_name[NAIVE_CPU] = "Naive CPU";
-    mode_name[PAR_CPU] = "Parallel CPU";
+    mode_name[PAR_CPU_EV_TRVL] = "Parallel CPU with edge&vertices traversal enabled";
+    mode_name[PAR_CPU_WE_ONLY] = "Parallel CPU with work-efficient-only traversal enabled";
     mode_name[PAR_CPU_1_DEG] = "Parallel CPU with 1-deg vertices reduction";
     mode_name[MIC_OFF] = "Xeon Phi Offload";
     mode_name[MIC_OFF_1_DEG] = "Xeon Phi Offload with 1-deg vertices reduction";
@@ -45,11 +46,10 @@ ParseArgs::ParseArgs() {
     mode_name[VERIFY] = "Verify the results";
     mode_name[ENABLE_INNER_LOOP] = "Enable inner loop";
 #else
-    mode_name[NAIVE_CPU] = "Naive KNL";
-    mode_name[MIC_OFF] = "Parallel KNL";
-    mode_name[MIC_OFF_1_DEG] = "Parallel KNL with 1-deg vertices reduction";
-    mode_name[MIC_OFF_E_V_TRVL] = "Parallel with edge&vertices traversal enabled";
-    mode_name[MIC_OFF_WE_ONLY] = "Parallel with work-efficient-only traversal enabled";
+    mode_name[NAIVE_CPU] = "Naive CPU";
+    mode_name[PAR_CPU_EV_TRVL] = "Parallel KNL with edge&vertices traversal enabled";
+    mode_name[PAR_CPU_WE_ONLY] = "Parallel KNL with work-efficient-only traversal enabled";
+    mode_name[PAR_CPU_1_DEG] = "Parallel KNL with 1-deg vertices reduction";
     mode_name[VERIFY] = "Verify the results";
     mode_name[ENABLE_INNER_LOOP] = "Enable inner loop";
 #endif

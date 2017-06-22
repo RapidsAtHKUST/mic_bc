@@ -197,7 +197,7 @@ __ONMIC__ void MIC_Opt_BC_inner_loop_parallel(const int n, const int m, const in
     if (mode & MIC_OFF_E_V_TRVL)
         edge_enable = is_small_diameter;
 
-    if ((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG) || (mode & RUN_ON_CPU) || (mode & MIC_OFF_WE_ONLY)) {
+    if ((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG)  || (mode & MIC_OFF_WE_ONLY)) {
         edge_enable = 0;
 #ifdef DEBUG
         printf("disable 'edge_enable', running mode: %x\n", mode);
@@ -433,7 +433,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
     if (mode & MIC_OFF_E_V_TRVL)
         edge_enable = is_small_diameter;
 
-    if ((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG) || (mode & RUN_ON_CPU) || (mode & MIC_OFF_WE_ONLY)) {
+    if ((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG) || (mode & MIC_OFF_WE_ONLY)) {
         edge_enable = 0;
 #ifdef DEBUG
         printf("disable 'edge_enable', running mode: %x\n", mode);

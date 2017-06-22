@@ -174,14 +174,14 @@ int main(int argc, char *argv[]) {
         bc_cpu = BC_cpu(g, source_vertices);
         //g_util.print_BC_scores(bc_cpu, nullptr);
     }
-
+#ifdef DEBUG
     std::cout << args.run_flags.to_ulong() << std::endl;
-
     for (int i = 0; i <= 32; i++) {
         if (args.run_flags[i])
             printf("%d\n", i);
     }
-
+#endif
+    
     for (int j = 0; j <= 8; j++) {
         int bit = j;
         if (args.run_flags[bit]) {
@@ -196,33 +196,30 @@ int main(int argc, char *argv[]) {
             switch (0x1 << bit) {
                 case NAIVE_CPU:
                     _t.start_wall_time();
-#ifdef KNL
                     result = BC_cpu(g, source_vertices);
-#else
-                    result = BC_cpu(g, source_vertices);
-#endif
                     _t.stop_wall_time();
                     break;
-                case PAR_CPU:
+                case PAR_CPU_EV_TRVL:
                     _t.start_wall_time();
                     result = BC_cpu_parallel(g, args.num_cores_cpu, small_diameter, source_vertices_array,
-                                             source_vertices.size(), PAR_CPU | RUN_ON_CPU);
+                                             source_vertices.size(), PAR_CPU_EV_TRVL, args.traversal_thresold);
+                    _t.stop_wall_time();
+                    break;
+                case PAR_CPU_WE_ONLY:
+                    _t.start_wall_time();
+                    result = BC_cpu_parallel(g, args.num_cores_cpu, small_diameter, source_vertices_array,
+                                             source_vertices.size(), PAR_CPU_WE_ONLY, args.traversal_thresold);
                     _t.stop_wall_time();
                     break;
                 case PAR_CPU_1_DEG:
                     _t.start_wall_time();
                     result = BC_cpu_parallel(g_out, args.num_cores_cpu, small_diameter, source_vertices_array,
-                                             source_vertices.size(), PAR_CPU_1_DEG | RUN_ON_CPU);
+                                             source_vertices.size(), PAR_CPU_1_DEG, args.traversal_thresold);
                     _t.stop_wall_time();
                     //g_util.print_BC_scores(result, nullptr);
                     break;
                 case MIC_OFF:
-#ifdef KNL
-                    _t.start_wall_time();
-                    result = BC_cpu_parallel(g, args.num_cores_cpu, small_diameter, source_vertices_array,
-                                             source_vertices.size(), MIC_OFF);
-                    _t.stop_wall_time();
-#else
+#ifndef KNL
                 MIC_BC *mic_bc = new MIC_BC(g, args.num_cores_mic, small_diameter, source_vertices_array, source_vertices.size(), MIC_OFF);
                 _t.start_wall_time();
                 result = mic_bc->opt_bc(args.traversal_thresold);
@@ -230,12 +227,7 @@ int main(int argc, char *argv[]) {
 #endif
                     break;
                 case MIC_OFF_1_DEG:
-#ifdef KNL
-                    _t.start_wall_time();
-                    result = BC_cpu_parallel(g_out, args.num_cores_cpu, small_diameter, source_vertices_array,
-                                             source_vertices.size(), MIC_OFF_1_DEG);
-                    _t.stop_wall_time();
-#else
+#ifndef KNL
                 MIC_BC *mic_bc_o = new MIC_BC(g_out, args.num_cores_mic, small_diameter, source_vertices_array,source_vertices.size() , MIC_OFF_1_DEG);
                 _t.start_wall_time();
                 result = mic_bc_o->opt_bc(args.traversal_thresold);
@@ -243,12 +235,7 @@ int main(int argc, char *argv[]) {
 #endif
                     break;
                 case MIC_OFF_E_V_TRVL:
-#ifdef KNL
-                    _t.start_wall_time();
-                    result = BC_cpu_parallel(g, args.num_cores_cpu, small_diameter, source_vertices_array,
-                                             source_vertices.size(), MIC_OFF_E_V_TRVL);
-                    _t.stop_wall_time();
-#else
+#ifndef KNL
                 MIC_BC *mic_bc_ev = new MIC_BC(g, args.num_cores_mic, small_diameter,  source_vertices_array, source_vertices.size(), MIC_OFF_E_V_TRVL);
                 _t.start_wall_time();
                 result = mic_bc_ev->opt_bc(args.traversal_thresold);
@@ -256,12 +243,7 @@ int main(int argc, char *argv[]) {
 #endif
                     break;
                 case MIC_OFF_WE_ONLY:
-#ifdef KNL
-                    _t.start_wall_time();
-                    result = BC_cpu_parallel(g, args.num_cores_cpu, small_diameter, source_vertices_array,
-                                             source_vertices.size(), MIC_OFF_WE_ONLY);
-                    _t.stop_wall_time();
-#else
+#ifndef KNL
                 MIC_BC *mic_bc_we_only = new MIC_BC(g, args.num_cores_mic, small_diameter, source_vertices_array,source_vertices.size(),  MIC_OFF_WE_ONLY);
                 _t.start_wall_time();
                 result = mic_bc_we_only->opt_bc(args.traversal_thresold);
@@ -295,7 +277,9 @@ int main(int argc, char *argv[]) {
     std::cout << "Enable inner loop" << std::endl;
     for (int j = 0; j < 8; j++) {
         int bit = j;
-        if (args.run_flags[bit]) {
+        if (args.run_flags[bit] ) {
+            if((0x1 << bit) != PAR_CPU_WE_ONLY || (0x1<<bit) != MIC_OFF_WE_ONLY)
+                continue;
             sleep(3);
             std::ios::fmtflags f;
             f = std::cout.flags();
@@ -305,75 +289,15 @@ int main(int argc, char *argv[]) {
 
             //std::cout << "start running" << std::endl;
             switch (0x1 << bit) {
-                case NAIVE_CPU:
-                    _t.start_wall_time();
-#ifdef KNL
-                    result = BC_cpu(g, source_vertices);
-#else
-                    result = BC_cpu(g, source_vertices);
-#endif
-                    _t.stop_wall_time();
-                    break;
-                case PAR_CPU:
+
+                case PAR_CPU_WE_ONLY:
                     _t.start_wall_time();
                     result = BC_cpu_parallel_inner_loop(g, args.num_cores_cpu, small_diameter, source_vertices_array,
-                                                        source_vertices.size(), PAR_CPU | RUN_ON_CPU);
+                                                        source_vertices.size(), PAR_CPU_WE_ONLY, args.traversal_thresold);
                     _t.stop_wall_time();
-                    break;
-                case PAR_CPU_1_DEG:
-                    _t.start_wall_time();
-                    result = BC_cpu_parallel_inner_loop(g_out, args.num_cores_cpu, small_diameter,
-                                                        source_vertices_array, source_vertices.size(),
-                                                        PAR_CPU_1_DEG | RUN_ON_CPU);
-                    _t.stop_wall_time();
-                    //g_util.print_BC_scores(result, nullptr);
-                    break;
-                case MIC_OFF:
-#ifdef KNL
-                    _t.start_wall_time();
-                    result = BC_cpu_parallel_inner_loop(g, args.num_cores_cpu, small_diameter, source_vertices_array,
-                                                        source_vertices.size(), MIC_OFF);
-                    _t.stop_wall_time();
-#else
-                MIC_BC *mic_bc = new MIC_BC(g, args.num_cores_mic, small_diameter,source_vertices_array, source_vertices.size(), MIC_OFF);
-                _t.start_wall_time();
-                result = mic_bc->opt_bc_inner_loop(args.traversal_thresold);
-                _t.stop_wall_time();
-#endif
-                    break;
-                case MIC_OFF_1_DEG:
-#ifdef KNL
-                    _t.start_wall_time();
-                    result = BC_cpu_parallel_inner_loop(g_out, args.num_cores_cpu, small_diameter,
-                                                        source_vertices_array, source_vertices.size(), MIC_OFF_1_DEG);
-                    _t.stop_wall_time();
-#else
-                MIC_BC *mic_bc_o = new MIC_BC(g_out, args.num_cores_mic, small_diameter, source_vertices_array, source_vertices.size(),MIC_OFF_1_DEG);
-                _t.start_wall_time();
-                result = mic_bc_o->opt_bc_inner_loop(args.traversal_thresold);
-                _t.stop_wall_time();
-#endif
-                    break;
-                case MIC_OFF_E_V_TRVL:
-#ifdef KNL
-                    _t.start_wall_time();
-                    result = BC_cpu_parallel_inner_loop(g, args.num_cores_cpu, small_diameter, source_vertices_array,
-                                                        source_vertices.size(), MIC_OFF_E_V_TRVL);
-                    _t.stop_wall_time();
-#else
-                MIC_BC *mic_bc_ev = new MIC_BC(g, args.num_cores_mic, small_diameter,  source_vertices_array,source_vertices.size(), MIC_OFF_E_V_TRVL);
-                _t.start_wall_time();
-                result = mic_bc_ev->opt_bc_inner_loop(args.traversal_thresold);
-                _t.stop_wall_time();
-#endif
                     break;
                 case MIC_OFF_WE_ONLY:
-#ifdef KNL
-                    _t.start_wall_time();
-                    result = BC_cpu_parallel_inner_loop(g, args.num_cores_cpu, small_diameter, source_vertices_array,
-                                                        source_vertices.size(), MIC_OFF_WE_ONLY);
-                    _t.stop_wall_time();
-#else
+#ifndef KNL
                 MIC_BC *mic_bc_we_only = new MIC_BC(g, args.num_cores_mic, small_diameter,  source_vertices_array, source_vertices.size(), MIC_OFF_WE_ONLY);
                 _t.start_wall_time();
                 result = mic_bc_we_only->opt_bc_inner_loop(args.traversal_thresold);
