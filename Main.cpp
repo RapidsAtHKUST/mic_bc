@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
             if (k > g.n) {
                 k = g.n;
             }
-            std::srand(time(NULL));
+            std::srand(0x4D5A);
             while (source_vertices.size() < k) {
                 int temp_source = std::rand() % g.n;
                 source_vertices.insert(temp_source);
@@ -193,6 +193,11 @@ int main(int argc, char *argv[]) {
             std::cout.flags(f);
 
             //std::cout << "start running" << std::endl;
+            int cores = args.num_cores_cpu;
+#ifdef KNL
+            cores = 256;
+#endif
+
             switch (0x1 << bit) {
                 case NAIVE_CPU:
                     _t.start_wall_time();
@@ -201,19 +206,19 @@ int main(int argc, char *argv[]) {
                     break;
                 case PAR_CPU_EV_TRVL:
                     _t.start_wall_time();
-                    result = BC_cpu_parallel(g, args.num_cores_cpu, small_diameter, source_vertices_array,
+                    result = BC_cpu_parallel(g, cores, small_diameter, source_vertices_array,
                                              source_vertices.size(), PAR_CPU_EV_TRVL, args.traversal_thresold);
                     _t.stop_wall_time();
                     break;
                 case PAR_CPU_WE_ONLY:
                     _t.start_wall_time();
-                    result = BC_cpu_parallel(g, args.num_cores_cpu, small_diameter, source_vertices_array,
+                    result = BC_cpu_parallel(g, cores, small_diameter, source_vertices_array,
                                              source_vertices.size(), PAR_CPU_WE_ONLY, args.traversal_thresold);
                     _t.stop_wall_time();
                     break;
                 case PAR_CPU_1_DEG:
                     _t.start_wall_time();
-                    result = BC_cpu_parallel(g_out, args.num_cores_cpu, small_diameter, source_vertices_array,
+                    result = BC_cpu_parallel(g_out, cores, small_diameter, source_vertices_array,
                                              source_vertices.size(), PAR_CPU_1_DEG, args.traversal_thresold);
                     _t.stop_wall_time();
                     //g_util.print_BC_scores(result, nullptr);
@@ -282,7 +287,7 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < 8; j++) {
         int bit = j;
         if (args.run_flags[bit]) {
-            if ((0x1 << bit) != PAR_CPU_WE_ONLY || (0x1 << bit) != MIC_OFF_WE_ONLY)
+            if ((0x1 << bit) != PAR_CPU_WE_ONLY && (0x1 << bit) != MIC_OFF_WE_ONLY)
                 continue;
             sleep(3);
             std::ios::fmtflags f;
@@ -296,7 +301,11 @@ int main(int argc, char *argv[]) {
 
                 case PAR_CPU_WE_ONLY:
                     _t.start_wall_time();
-                    result = BC_cpu_parallel_inner_loop(g, args.num_cores_cpu, small_diameter, source_vertices_array,
+                    int cores = args.num_cores_cpu;
+#ifdef KNL
+                    cores = 256;
+#endif
+                    result = BC_cpu_parallel_inner_loop(g, cores, small_diameter, source_vertices_array,
                                                         source_vertices.size(), PAR_CPU_WE_ONLY,
                                                         args.traversal_thresold);
                     _t.stop_wall_time();

@@ -177,19 +177,20 @@ __ONMIC__ void MIC_Level_Parallel(int n, int m, int *__NOLP__ R,
 
 __ONMIC__ void MIC_Opt_BC_inner_loop_parallel(const int n, const int m, const int *R,
                                               const int *F, const int *C, const int *weight, const int *which_comp,
-                                              float *result_mic, const int num_cores, bool is_small_diameter,
+                                              float *result_mic, const int num_cores_t, bool is_small_diameter,
                                               uint32_t mode, float traversal_thresold,
                                               const int *source_vertices, int num_source_vertices) {
 
 //#define THOLD 0.5
 //#define CHUNK_SIZE 1
 //将GPU的block看做是1(也就是编号0), 把GPU的thread对应成mic的thread
-    printf("Inner loop parallel\n");
-    omp_set_num_threads(num_cores);
-    int *d_a;
-    unsigned long long *sigma_a;
-    float *delta_a;
-    int *Q2_a, *Q_a, *S_a, *endpoints_a;
+    omp_set_nested(1);
+    int num_cores = num_cores_t/4;
+    int *d_a[num_cores];
+    unsigned long long *sigma_a[num_cores];
+    float *delta_a[num_cores];
+    int *Q2_a[num_cores], *Q_a[num_cores], *S_a[num_cores],
+            *endpoints_a[num_cores];
 
     bool edge_enable = 0;
     long edge_traversal_applied_times = 0;
@@ -206,43 +207,42 @@ __ONMIC__ void MIC_Opt_BC_inner_loop_parallel(const int n, const int m, const in
 
     printf("applied 'edge_enable' value: %d\n", edge_enable);
 
-#ifdef EDGEONLY
-    printf("Edge Only.\n");
-
+#ifdef __MIC__
+    // There are only 16 memory channels
+#pragma omp parallel for num_threads(16)
 #endif
-#ifdef WEONLY
-    printf("Work-efficient Only.\n");
-
-#endif
-
-    d_a = (int *) _mm_malloc(sizeof(int) * n, 64);
-    sigma_a = (unsigned long long *) _mm_malloc(
-            sizeof(unsigned long long) * n, 64);
-    delta_a = (float *) _mm_malloc(sizeof(float) * n, 64);
-    Q2_a = (int *) _mm_malloc(sizeof(int) * n, 64);
-    Q_a = (int *) _mm_malloc(sizeof(int) * n, 64);
-    endpoints_a = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
-    S_a = (int *) _mm_malloc(sizeof(int) * n, 64);
+    for (int i = 0; i < num_cores; i++) {
+        d_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
+        sigma_a[i] = (unsigned long long *) _mm_malloc(
+                sizeof(unsigned long long) * n, 64);
+        delta_a[i] = (float *) _mm_malloc(sizeof(float) * n, 64);
+        Q2_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
+        Q_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
+        endpoints_a[i] = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
+        S_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
+    }
 
     int endNum = n;
     if (num_source_vertices > 1) {
         endNum = num_source_vertices;
     }
 
+#pragma omp parallel for num_threads(num_cores)
     for (int index = 0; index < endNum; index++) {
-        int ind = num_source_vertices > 1 ? source_vertices[index] : index;
 
+        int ind = num_source_vertices > 1 ? source_vertices[index] : index;
         if (R[ind + 1] - R[ind] != 0) {
 
+            int thread_id = omp_get_thread_num();
             int start_point = ind;
 
-            int *d = d_a;
-            unsigned long long *sigma = sigma_a;
-            float *delta = delta_a;
-            int *Q = Q_a;
-            int *Q2 = Q2_a;
-            int *endpoints = endpoints_a;
-            int *S = S_a;
+            int *d = d_a[thread_id];
+            unsigned long long *sigma = sigma_a[thread_id];
+            float *delta = delta_a[thread_id];
+            int *Q = Q_a[thread_id];
+            int *Q2 = Q2_a[thread_id];
+            int *endpoints = endpoints_a[thread_id];
+            int *S = S_a[thread_id];
             long long successors_count = 0;
 
             S[0] = start_point;
@@ -251,6 +251,8 @@ __ONMIC__ void MIC_Opt_BC_inner_loop_parallel(const int n, const int m, const in
 
             int Q_len = 0;
             int Q2_len = 0;
+            pthread_mutex_t length_lock;
+            pthread_mutex_init(&length_lock, NULL);
             int S_len = 1;
             int depth = 0;
             int endpoints_len = 2;
@@ -271,16 +273,17 @@ __ONMIC__ void MIC_Opt_BC_inner_loop_parallel(const int n, const int m, const in
             if(mode & INIT_T)
                 continue;
 #endif
-
-#pragma omp parallel for
+#pragma omp parallel for num_threads(4)
             for (int r = R[start_point]; r < R[start_point + 1]; r++) {
                 int w = C[r];
                 if (d[w] == 0xefefefef) {
                     d[w] = 1;
-                    int current_length;
-#pragma omp atomic capture
-                    current_length = Q2_len++;
-                    Q2[current_length] = w;
+                    int cur_index;
+                    pthread_mutex_lock(&length_lock);
+                    cur_index = Q2_len;
+                    Q2_len++;
+                    pthread_mutex_unlock(&length_lock);
+                    Q2[cur_index] = w;
                 }
                 if (d[w] == (d[start_point] + 1)) {
                     sigma[w]++;
@@ -314,20 +317,22 @@ __ONMIC__ void MIC_Opt_BC_inner_loop_parallel(const int n, const int m, const in
 #endif
                 if (e) {
 #ifdef DEBUG
-#pragma omp atomic
+                    #pragma omp atomic
                     edge_traversal_applied_times++;
 #endif
-#pragma omp parallel
+#pragma omp parallel for num_threads(4)
                     for (int k = 0; k < 2 * m; k++) {
                         int v = F[k];
                         if (d[v] == depth) {
                             int w = C[k];
                             if (d[w] == 0xefefefef) {
                                 d[w] = d[v] + 1;
-                                int current_length;
-#pragma omp atomic capture
-                                current_length = Q2_len++;
-                                Q2[current_length] = w;
+                                int cur_index;
+                                pthread_mutex_lock(&length_lock);
+                                cur_index = Q2_len;
+                                Q2_len++;
+                                pthread_mutex_unlock(&length_lock);
+                                Q2[cur_index] = w;
                             }
                             if (d[w] == (d[v] + 1)) {
                                 sigma[w] += sigma[v];
@@ -335,17 +340,19 @@ __ONMIC__ void MIC_Opt_BC_inner_loop_parallel(const int n, const int m, const in
                         }
                     }
                 } else {
-#pragma omp parallel for
+#pragma omp parallel for num_threads(4)
                     for (int k = 0; k < Q_len; k++) {
                         int v = Q[k];
                         for (int r = R[v]; r < R[v + 1]; r++) {
                             int w = C[r];
                             if (d[w] == 0xefefefef) {
                                 d[w] = d[v] + 1;
-                                int current_length;
-#pragma omp atomic capture
-                                current_length = Q2_len++;
-                                Q2[current_length] = w;
+                                int cur_index;
+                                pthread_mutex_lock(&length_lock);
+                                cur_index = Q2_len;
+                                Q2_len++;
+                                pthread_mutex_unlock(&length_lock);
+                                Q2[cur_index] = w;
                             }
                             if (d[w] == (d[v] + 1)) {
                                 sigma[w] += sigma[v];
@@ -397,17 +404,14 @@ __ONMIC__ void MIC_Opt_BC_inner_loop_parallel(const int n, const int m, const in
             }
             for (int kk = 0; kk < start_point; kk++) {
                 if (which_comp[start_point] == which_comp[kk])
-                    result_mic[1 * n + kk] += delta[kk] * weight[start_point];
+                    result_mic[thread_id * n + kk] += delta[kk] * weight[start_point];
             }
             for (int kk = start_point + 1; kk < n; kk++) {
                 if (which_comp[start_point] == which_comp[kk])
-                    result_mic[1 * n + kk] += delta[kk] * weight[start_point];
+                    result_mic[thread_id * n + kk] += delta[kk] * weight[start_point];
             }
         }
     }
-#ifdef DEBUG
-    printf("edge traversal enabled times: %d\n", edge_traversal_applied_times);
-#endif
 }
 
 
@@ -471,7 +475,7 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
         endNum = num_source_vertices;
     }
 
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for
     for (int index = 0; index < endNum; index++) {
 
         int ind = num_source_vertices > 1 ? source_vertices[index] : index;
