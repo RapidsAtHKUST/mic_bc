@@ -10,7 +10,7 @@
 
 #ifndef KNL
 
-#pragma offload_attribute (push,target(mic))
+#pragma offload_attribute (push, target(mic))
 
 #include <sys/time.h>
 
@@ -27,17 +27,18 @@ int *which_comp;
 float *result_mic;
 #pragma offload_attribute (pop)
 
-MIC_BC::MIC_BC(Graph g, int num_cores_t, bool small_diameter, int* source_vertices, int num_source_vertices, uint32_t mode_t) {
+MIC_BC::MIC_BC(Graph g, int num_cores_t, bool small_diameter, int *source_vertices, int num_source_vertices,
+               uint32_t mode_t) {
 
     current_node = 0;
     n = g.n;
     m = g.m;
     //cannot transfer 0 sized array to MIC, fix it to at least 1.
-    if(num_source_vertices > 0){
+    if (num_source_vertices > 0) {
         this->source_vertices = source_vertices;
         this->num_source_vertices = num_source_vertices;
     } else {
-        this->source_vertices = (int*)malloc(sizeof(int));
+        this->source_vertices = (int *) malloc(sizeof(int));
         this->num_source_vertices = 1;
     }
 
@@ -49,7 +50,7 @@ MIC_BC::MIC_BC(Graph g, int num_cores_t, bool small_diameter, int* source_vertic
     is_small_diameter = small_diameter;
     mode = mode_t;
     result.resize(n);
-    for(int i = 0 ; i < n; i++){
+    for (int i = 0; i < n; i++) {
         result[i] = 0;
     }
 
@@ -160,7 +161,8 @@ std::vector<float> MIC_BC::opt_bc(float traversal_thresold) {
         std::cout << "\taccumulation time: " << s2_t << " s\n" << std::endl;
         std::cout << "\ttotal time: " << ms_wall / 1000.0 << " s\n" << std::endl;
 #else
-        MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, is_small_diameter, mode, traversal_thresold, source_vertices, num_source_vertices);
+        MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_mic, num_cores, is_small_diameter, mode,
+                   traversal_thresold, source_vertices, num_source_vertices);
 #endif
     }
 
@@ -180,7 +182,7 @@ std::vector<float> MIC_BC::opt_bc(float traversal_thresold) {
     return result;
 }
 
-std::vector<float> MIC_BC::opt_bc_inner_loop(float traversal_thresold){
+std::vector<float> MIC_BC::opt_bc_inner_loop(float traversal_thresold) {
 
 #pragma offload target(mic:0)\
         nocopy(source_vertices[0:num_source_vertices]: FREE)\
@@ -219,7 +221,8 @@ std::vector<float> MIC_BC::opt_bc_inner_loop(float traversal_thresold){
         std::cout << "\taccumulation time: " << s2_t << " s\n" << std::endl;
         std::cout << "\ttotal time: " << ms_wall / 1000.0 << " s\n" << std::endl;
 #else
-        MIC_Opt_BC_inner_loop_parallel(n, m, R, F, C, weight, which_comp, result_mic, num_cores, is_small_diameter, mode, traversal_thresold, source_vertices, num_source_vertices);
+        MIC_Opt_BC_inner_loop_parallel(n, m, R, F, C, weight, which_comp, result_mic, num_cores, is_small_diameter,
+                                       mode, traversal_thresold, source_vertices, num_source_vertices);
 #endif
     }
 

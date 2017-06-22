@@ -10,7 +10,9 @@
 #include "MIC_COMMON.h"
 
 #ifndef KNL
+
 #include <offload.h>
+
 #endif
 
 #include <omp.h>
@@ -23,6 +25,7 @@ ParseArgs::ParseArgs() {
     verify = cpu_parallel = reduce_1_deg = false;
     printResult = false;
     traversal_thresold = 0.5;
+    approx = false;
 #ifndef KNL
     num_devices = _Offload_number_of_devices();
     num_cores_cpu = omp_get_max_threads();

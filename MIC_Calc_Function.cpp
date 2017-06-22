@@ -197,7 +197,7 @@ __ONMIC__ void MIC_Opt_BC_inner_loop_parallel(const int n, const int m, const in
     if (mode & MIC_OFF_E_V_TRVL)
         edge_enable = is_small_diameter;
 
-    if ((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG)  || (mode & MIC_OFF_WE_ONLY)) {
+    if ((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG) || (mode & MIC_OFF_WE_ONLY)) {
         edge_enable = 0;
 #ifdef DEBUG
         printf("disable 'edge_enable', running mode: %x\n", mode);
@@ -224,8 +224,8 @@ __ONMIC__ void MIC_Opt_BC_inner_loop_parallel(const int n, const int m, const in
     endpoints_a = (int *) _mm_malloc(sizeof(int) * (n + 1), 64);
     S_a = (int *) _mm_malloc(sizeof(int) * n, 64);
 
-    int endNum  = n;
-    if(num_source_vertices >1){
+    int endNum = n;
+    if (num_source_vertices > 1) {
         endNum = num_source_vertices;
     }
 
@@ -466,8 +466,8 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
         S_a[i] = (int *) _mm_malloc(sizeof(int) * n, 64);
     }
 
-    int endNum  = n;
-    if(num_source_vertices >1){
+    int endNum = n;
+    if (num_source_vertices > 1) {
         endNum = num_source_vertices;
     }
 

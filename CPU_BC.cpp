@@ -129,7 +129,8 @@ BC_cpu_parallel(Graph g, int num_cores, bool is_small_diameter, int *source_vert
     std::cout << "\taccumulation time: " << s2_t << " s\n" << std::endl;
     std::cout << "\ttotal time: " << _t.ms_wall / 1000.0 << " s\n" << std::endl;
 #else
-    MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_cpu, num_cores, is_small_diameter, mode, threshold, source_vertices,
+    MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_cpu, num_cores, is_small_diameter, mode, threshold,
+               source_vertices,
                num_source_vertices);
 #endif
 
@@ -206,7 +207,8 @@ std::vector<float> BC_cpu_parallel_inner_loop(Graph g, int num_cores, bool is_sm
     std::cout << "\taccumulation time: " << s2_t << " s\n" << std::endl;
     std::cout << "\ttotal time: " << _t.ms_wall / 1000.0 << " s\n" << std::endl;
 #else
-    MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_cpu, num_cores, is_small_diameter, mode, threshold, source_vertices,
+    MIC_Opt_BC(n, m, R, F, C, weight, which_comp, result_cpu, num_cores, is_small_diameter, mode, threshold,
+               source_vertices,
                num_source_vertices);
 #endif
 
