@@ -5,9 +5,48 @@ export MIC_ENV_PREFIX=PHI
 export PHI_KMP_AFFINITY=granularity=fine,compact
 
 
+base_dir="/d2/lwangay/workspace"
+data_dir="${base_dir}/graphs"
+bin_dir="${base_dir}/mic_bc/build"
+bin_name="mic_bc"
 
-data_dir="../../graphs/"
+flags="0x00ee"
+threshold="0.3"
 
-graphs=( "delaunay_n17" "smallworld" "email-Enron" "" )
+graphs=( "smallworld.graph" "email-Enron.txt" )
 
-vertices_ratio=( "20%" "40%" "60%"  "80%"  "100%" )
+cd ${bin_dir}
+
+for i in "${graphs[@]}"
+do
+    echo ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "10%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+    ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "10%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+
+    echo ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "20%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+    ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "20%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+
+    echo ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "30%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+    ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "30%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+
+    echo ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "40%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+    ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "40%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+
+    echo ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "50%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+    ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "50%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+
+    echo ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "60%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+    ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "60%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+
+    echo ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "70%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+    ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "70%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+
+    echo ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "80%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+    ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "80%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+
+    echo ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "90%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+    ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "90%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+
+    echo ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "100%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+    ${bin_dir}/${bin_name} -i ${data_dir}/$i -f ${flags} -t ${threshold} -o "100%" |gawk '{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }'
+
+done

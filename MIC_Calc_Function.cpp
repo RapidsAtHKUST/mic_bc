@@ -316,10 +316,8 @@ __ONMIC__ void MIC_Opt_BC_inner_loop_parallel(const int n, const int m, const in
                 e = false;
 #endif
                 if (e) {
-#ifdef DEBUG
                     #pragma omp atomic
                     edge_traversal_applied_times++;
-#endif
 #pragma omp parallel for num_threads(4)
                     for (int k = 0; k < 2 * m; k++) {
                         int v = F[k];
@@ -431,13 +429,13 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
     int *Q2_a[num_cores], *Q_a[num_cores], *S_a[num_cores],
             *endpoints_a[num_cores];
 
-    bool edge_enable = 0;
+    bool edge_enable = 1;
     long edge_traversal_applied_times = 0;
 
-    if (mode & MIC_OFF_E_V_TRVL)
-        edge_enable = is_small_diameter;
+//    if (mode & MIC_OFF_E_V_TRVL)
+//        edge_enable = is_small_diameter;
 
-    if ((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG) || (mode & MIC_OFF_WE_ONLY)) {
+    if ((mode & PAR_CPU_1_DEG) || (mode & MIC_OFF_1_DEG) || (mode & MIC_OFF_WE_ONLY) || (mode & PAR_CPU_WE_ONLY)) {
         edge_enable = 0;
 #ifdef DEBUG
         printf("disable 'edge_enable', running mode: %x\n", mode);
@@ -558,10 +556,8 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
                 e = false;
 #endif
                 if (e) {
-#ifdef DEBUG
 #pragma omp atomic
                     edge_traversal_applied_times++;
-#endif
                     for (int k = 0; k < 2 * m; k++) {
                         int v = F[k];
                         if (d[v] == depth) {
@@ -644,7 +640,5 @@ __ONMIC__ void MIC_Opt_BC(const int n, const int m, const int *R,
             }
         }
     }
-#ifdef DEBUG
     printf("edge traversal enabled times: %d\n", edge_traversal_applied_times);
-#endif
 }
